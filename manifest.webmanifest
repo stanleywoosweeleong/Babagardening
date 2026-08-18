@@ -1,0 +1,34 @@
+{
+  "name": "Baba 园艺产品目录 2026",
+  "short_name": "Baba 目录",
+  "description": "Baba Gardening Catalogue 2026 (REV/MAY) — 287 products, offline, bilingual 中文 / English.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F3EF",
+  "theme_color": "#0B6B45",
+  "lang": "zh-Hans",
+  "dir": "ltr",
+  "categories": ["shopping", "business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "询价清单 / Enquiry list",
+      "short_name": "清单",
+      "url": "./?tab=list",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "配对工具 / Matching tools",
+      "short_name": "配对",
+      "url": "./?tab=match",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
