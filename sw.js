@@ -5,7 +5,7 @@
      - everything else in scope: cache-first with background fill
    Bump CACHE_VERSION whenever index.html is re-deployed. */
 
-const CACHE_VERSION = '2026-0818-2';
+const CACHE_VERSION = '2026-0818-3';
 const CACHE = 'baba-catalogue-' + CACHE_VERSION;
 
 const PRECACHE = [
