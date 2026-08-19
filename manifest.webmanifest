@@ -2,7 +2,7 @@
   "name": "Baba 园艺产品目录 2026",
   "short_name": "Baba 目录",
   "description": "Baba Gardening Catalogue 2026 (REV/MAY) — 287 products, offline, bilingual 中文 / English.",
-  "id": "./",
+  "id": "/Babagardening/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
