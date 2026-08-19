@@ -5,19 +5,19 @@
      - everything else in scope: cache-first with background fill
    Bump CACHE_VERSION whenever index.html is re-deployed. */
 
-const CACHE_VERSION = '2026-0818-3';
+const CACHE_VERSION = '2026-0818-4';
 const CACHE = 'baba-catalogue-' + CACHE_VERSION;
 
 const PRECACHE = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png',
-  './icons/favicon-32.png',
-  './icons/favicon-16.png',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-512.png',
+  './apple-touch-icon.png',
+  './favicon-32.png',
+  './favicon-16.png',
   './favicon.ico'
 ];
 
@@ -37,9 +37,6 @@ self.addEventListener('activate', event => {
     const keys = await caches.keys();
     await Promise.all(keys.map(k => (k.startsWith('baba-catalogue-') && k !== CACHE)
       ? caches.delete(k) : Promise.resolve()));
-    if (self.registration.navigationPreload) {
-      try { await self.registration.navigationPreload.enable(); } catch (e) {}
-    }
     await self.clients.claim();
   })());
 });
@@ -71,8 +68,7 @@ self.addEventListener('fetch', event => {
         return cached;
       }
       try {
-        const preload = await event.preloadResponse;
-        const res = preload || await fetch(req);
+        const res = await fetch(req);
         if (res && res.ok) cache.put('./index.html', res.clone());
         return res;
       } catch (e) {
