@@ -923,7 +923,7 @@ function openSheet(id, push=true){
   if(push) sheetHistory.push(id);
   const b=$('#sheetBody');
   let h = `<div class="shero">
-      ${thumb(p, "aspect-ratio:1/1")}
+      ${thumb(p, "aspect-ratio:1/1", "", true)}
       <div style="flex:1;min-width:0">
         <div class="stitle">${esc(L(p,'name'))}</div>
         <div class="salt">${esc(ALT(p,'name'))}</div>
