@@ -58,7 +58,7 @@ header{
   padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 0;
 }
 @supports not (backdrop-filter:blur(2px)){header{background:var(--paper)}}
-.brandrow{display:flex;align-items:center;gap:10px}
+.brandrow{display:flex;align-items:center;gap:10px;min-height:52px}
 .markbtn{
   /* Tapping the wordmark cycles the reader text size — one control fewer. */
   flex:none;display:flex;align-items:center;gap:5px;padding:6px 8px;margin-left:-8px;
@@ -67,13 +67,9 @@ header{
 .markbtn:active{background:rgba(20,33,27,.06)}
 @media(hover:hover){.markbtn:hover{background:rgba(20,33,27,.045)}}
 .mark{height:2.25rem;width:auto;display:block}
-.marksize{
-  font-family:var(--mono);font-size:.6875rem;font-weight:700;letter-spacing:.02em;
-  color:var(--ink-2);background:var(--field);border-radius:5px;padding:2px 5px;
-}
+
 .brandtxt{flex:1;min-width:0}
 .brandtxt b{display:block;font-family:var(--display);font-size:1rem;font-weight:700;letter-spacing:.01em}
-.brandtxt span{display:block;font-size:0.75rem;color:var(--ink-2);font-family:var(--mono);letter-spacing:.04em}
 .langbtn{
   flex:none;border:1px solid var(--line);border-radius:999px;color:var(--ink-2);
   padding:5px 12px;font-size:0.875rem;font-weight:700;letter-spacing:.06em;font-family:var(--mono);
@@ -370,10 +366,9 @@ nav button{min-height:44px}
 
 <header>
   <div class="brandrow">
-    <button class="markbtn" id="sizeBtn"><img class="mark" id="brandMark" alt="Baba" src=""><span class="marksize" id="markSize"></span></button>
+    <button class="markbtn" id="sizeBtn"><img class="mark" id="brandMark" alt="Baba" src=""></button>
     <div class="brandtxt">
       <b id="hTitle">园艺产品目录 2026</b>
-      <span>REV / MAY · KEAN BENG LEE INDUSTRIES</span>
     </div>
     <button class="langbtn" id="langBtn">EN</button>
   </div>
@@ -1099,9 +1094,13 @@ $('#shShareBtn').onclick = async () => {
 function renderAbout(){
   const zh = lang==='zh';
   $('#aboutBox').innerHTML = zh ? `
+    <h3>版本</h3>
+    <p><b>Baba 园艺产品目录 2026</b><br>
+    修订版本 <b>REV / MAY</b>（2026 年 5 月印刷版）<br>
+    出版：KEAN BENG LEE INDUSTRIES (M) SDN. BHD.</p>
     <h3>关于这个目录</h3>
-    <p>这是 <b>Baba 园艺产品目录 2026（REV/MAY）</b>的互动版，内容由 28 页印刷版 PDF 逐页读取而来。
-    产品图片是从原页面实时裁切的 —— 你看到的就是印刷版上的那张图。</p>
+    <p>这是印刷版目录的互动版，内容由 28 页 PDF 逐页读取而来。产品图片取自印刷版原图，
+    已去背并统一放在浅灰底上，所以你看到的仍是目录上的那张产品照。</p>
     <h3>它能做印刷版做不到的事</h3>
     <p><b>花盆 → 托盘：</b>目录只印托盘编号（例如 <code>911</code>），要翻到第 6 页才知道尺寸。这里直接显示 Ø234 × 29 毫米。</p>
     <p><b>铁架 → 花盆：</b>第 21–22 页的配对表已建成双向索引，从花盆也能查到能用哪个架。</p>
@@ -1111,16 +1110,24 @@ function renderAbout(){
     <p>种子的中文名属翻译，方便搜索，并非目录原文；种子包装上的原文请看原版页面。</p>
     <h3>字体大小</h3>
     <p>点一下左上角的 <b>Baba</b> 标志，就能在「标准 / 大字 / 特大」之间切换，方便在阳光下或视力较弱时阅读。设定会记住。</p>
-    <h3>离线</h3>
-    <p>整个应用是单一 HTML 档，28 页图片全部内嵌。可从 <code>file://</code> 直接打开，无需网络。</p>
+    <h3>离线使用</h3>
+    <p>第一次打开需要网络（约 4 MB）。之后所有产品资料、图片和 28 页原版目录都存在装置里，
+    完全没有讯号也能照常查看。</p>
+    <p>建议在有 WiFi 时先打开一次，并从「分享」页把它装到主画面，再带去园场。
+    有新版本时，画面下方会出现「目录有新版本」，点「更新」即可。</p>
     <h3>来源</h3>
     <p>KEAN BENG LEE INDUSTRIES (M) SDN. BHD. (399320-T)<br>
     1384, Atas Lot 841, MK-1, Jalan Tasek, 14120 Simpang Ampat, Seberang Perai Selatan, Penang, Malaysia<br>
     T +604-587 4077 · F +604-588 2998 · www.baba.com.my</p>
   ` : `
+    <h3>Edition</h3>
+    <p><b>Baba Gardening Catalogue 2026</b><br>
+    Revision <b>REV / MAY</b> (May 2026 print edition)<br>
+    Published by KEAN BENG LEE INDUSTRIES (M) SDN. BHD.</p>
     <h3>About this catalogue</h3>
-    <p>An interactive edition of the <b>Baba Gardening Catalogue 2026 (REV/MAY)</b>, read page by page from the
-    28-page print PDF. Product images are cropped live from the original pages — what you see is the printed photo.</p>
+    <p>An interactive edition of the printed catalogue, read page by page from the 28-page PDF.
+    Product images are taken from the printed originals, lifted off their background and placed
+    on a plain grey tile — so what you see is still the catalogue's own photograph.</p>
     <h3>What it does that paper can't</h3>
     <p><b>Pot → saucer:</b> the catalogue prints only a saucer code (e.g. <code>911</code>); you'd flip to page 6 for the size.
     Here it resolves to Ø234 × 29 mm inline.</p>
@@ -1132,9 +1139,13 @@ function renderAbout(){
     <p>Chinese seed names are translations added for search; they are not catalogue text. See the original pages for
     the packet wording.</p>
     <h3>Text size</h3>
-    <p>Tap the <b>Baba</b> logo in the top left to cycle through Standard / Large / Largest — useful in bright sun or for tired eyes. Your choice is remembered.</p>
-    <h3>Offline</h3>
-    <p>One HTML file with all 28 pages embedded. Opens straight from <code>file://</code>, no network needed.</p>
+    <p>Tap the <b>Baba</b> logo in the top left to cycle through Standard / Large / Largest — useful in bright sun
+    or for tired eyes. Your choice is remembered.</p>
+    <h3>Offline use</h3>
+    <p>The first visit needs a connection (about 4 MB). After that every product, image and all 28 catalogue
+    pages are stored on your device and work with no signal at all.</p>
+    <p>Open it once on WiFi and add it to your home screen from the Share tab before heading out. When a new
+    version is published an update banner appears at the bottom of the screen — tap Update.</p>
     <h3>Source</h3>
     <p>KEAN BENG LEE INDUSTRIES (M) SDN. BHD. (399320-T)<br>
     1384, Atas Lot 841, MK-1, Jalan Tasek, 14120 Simpang Ampat, Seberang Perai Selatan, Penang, Malaysia<br>
@@ -1172,7 +1183,6 @@ function applySize(){
   const s = STEPS[sizeStep];
   const label = (lang==='zh' ? '字体大小：' : 'Text size: ') + (lang==='zh' ? s.zh : s.en)
               + (lang==='zh' ? '（点标志可切换）' : ' — tap the logo to change');
-  $('#markSize').textContent = ['A', 'A+', 'A++'][sizeStep];
   $('#sizeBtn').setAttribute('aria-label', label);
   $('#sizeBtn').setAttribute('title', label);
 }
