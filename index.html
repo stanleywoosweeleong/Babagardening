@@ -288,6 +288,8 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .diag li i{font-style:normal;flex:none;font-weight:700}
 .diag li.y i{color:var(--green)}
 .diag li.n i{color:#A03328}
+.diag li.i i{color:var(--ink-2)}
+.diag li.i span{color:var(--ink-2)}
 .diag .hint{margin-top:8px;padding-top:9px;border-top:1px solid var(--line-s);color:var(--ink-2);
   font-size:.8125rem;line-height:1.5}
 /* ---------- toast / about ---------- */
@@ -522,7 +524,9 @@ const T = {
     instBtn:"安装到这台设备", instDone:"✓ 已安装到这台设备",
     instOk:"安装完成", diagSum:"看不到安装选项？点这里检查",
     dHttps:"网址是 https", dManifest:"应用设定档 manifest 已载入", dSw:"离线功能 service worker 已启用",
-    dIcons:"图示齐全", dStandalone:"目前已用 app 模式打开",
+    dIcons:"图示齐全", dStandaloneYes:"目前是以 app 模式打开",
+    dStandaloneNo:"目前是以浏览器分页打开（正常）",
+    dSwBypassed:"（已注册；本次载入用了 Ctrl+Shift+R 所以暂时未接管）",
     dHint:"以上全部打勾但仍看不到安装图示，通常是：① 已经安装过了 ② 浏览器不支援（Firefox、iPhone 上的 Chrome）③ 旧版本还在缓存中 —— 请按 Ctrl+Shift+R 重新载入。",
   },
   en:{
@@ -567,7 +571,9 @@ const T = {
     instOk:"Installed", diagSum:"No install option? Check here",
     dHttps:"Served over https", dManifest:"Manifest loaded",
     dSw:"Service worker active (offline ready)", dIcons:"Icons present",
-    dStandalone:"Currently running as an installed app",
+    dStandaloneYes:"Running as an installed app",
+    dStandaloneNo:"Running in a browser tab (normal)",
+    dSwBypassed:"(registered; this load used Ctrl+Shift+R so it stepped aside)",
     dHint:"If everything is ticked but no install icon appears, it is usually: (1) already installed, (2) an unsupported browser (Firefox, or Chrome on iPhone), or (3) an old cached version — reload with Ctrl+Shift+R.",
   }
 };
@@ -981,6 +987,15 @@ window.addEventListener('appinstalled', () => {
   paintInstall();
   toast(t().instOk);
 });
+let SW_STATE = 'unknown';
+function refreshSwState(){
+  if(!('serviceWorker' in navigator)){ SW_STATE = 'none'; paintDiag(); return; }
+  navigator.serviceWorker.getRegistration().then(reg => {
+    SW_STATE = !reg ? 'none'
+      : (navigator.serviceWorker.controller ? 'active' : 'registered');
+    paintDiag();
+  }).catch(() => { SW_STATE = 'none'; paintDiag(); });
+}
 function isStandalone(){
   /* matchMedia is missing in a few embedded webviews — never let this throw. */
   try{
@@ -1002,16 +1017,21 @@ function paintInstall(){
 function paintDiag(){
   const list = $('#diagList'); if(!list) return;
   $('#diagSum').textContent = t().diagSum;
+  const swOk = SW_STATE === 'active' || SW_STATE === 'registered';
+  const swLabel = t().dSw + (SW_STATE === 'registered' ? ' ' + t().dSwBypassed : '');
+  // 'i' rows are informational — they describe the situation, not a fault
   const checks = [
-    [location.protocol === 'https:' || location.hostname === 'localhost', t().dHttps],
-    [!!document.querySelector('link[rel="manifest"]'), t().dManifest],
-    ['serviceWorker' in navigator && !!navigator.serviceWorker.controller, t().dSw],
-    [document.querySelectorAll('link[rel="apple-touch-icon"],link[rel="icon"]').length >= 2, t().dIcons],
-    [isStandalone(), t().dStandalone]
+    ['y/n', location.protocol === 'https:' || location.hostname === 'localhost', t().dHttps],
+    ['y/n', !!document.querySelector('link[rel="manifest"]'), t().dManifest],
+    ['y/n', swOk, swLabel],
+    ['y/n', document.querySelectorAll('link[rel="apple-touch-icon"],link[rel="icon"]').length >= 2, t().dIcons],
+    ['i', isStandalone(), isStandalone() ? t().dStandaloneYes : t().dStandaloneNo]
   ];
-  list.innerHTML = checks.map(([ok, label]) =>
-    `<li class="${ok?'y':'n'}"><i>${ok?'✓':'✕'}</i><span>${esc(label)}</span></li>`).join('') +
-    `<li class="hint"><span>${esc(t().dHint)}</span></li>`;
+  list.innerHTML = checks.map(([kind, ok, label]) => {
+    const cls = kind === 'i' ? 'i' : (ok ? 'y' : 'n');
+    const mark = kind === 'i' ? '·' : (ok ? '✓' : '✕');
+    return `<li class="${cls}"><i>${mark}</i><span>${esc(label)}</span></li>`;
+  }).join('') + `<li class="hint"><span>${esc(t().dHint)}</span></li>`;
 }
 $('#installBtn').onclick = async () => {
   if(!deferredPrompt) return;
@@ -1142,6 +1162,7 @@ DB.saucers.forEach(s=>DB.saucerBy[s.code]=s);
 $('#brandMark').src = LOGO;
 applyLang();
 applySize();
+refreshSwState();
 
 /* Deep links from the manifest shortcuts: ?tab=list / ?tab=match */
 const wantTab = new URLSearchParams(location.search).get('tab');
@@ -1171,6 +1192,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         });
       });
       if (reg.waiting && navigator.serviceWorker.controller) showUpdate(reg);
+      refreshSwState();
     }).catch(e => console.warn('SW registration failed:', e.message));
 
     let reloading = false;
