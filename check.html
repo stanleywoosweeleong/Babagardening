@@ -71,6 +71,8 @@ async function run(){
     const sw = await (await fetch('sw.js?nosw=' + Date.now(), {cache:'no-store'})).text();
     version = (sw.match(/CACHE_VERSION = '([^']+)'/) || [,'?'])[1];
     list = JSON.parse(sw.match(/const PRECACHE = (\[[\s\S]*?\]);/)[1]);
+    const lazy = sw.match(/const LAZY = (\[[\s\S]*?\]);/);
+    if(lazy) list = list.concat(JSON.parse(lazy[1]));
     list = [...new Set(list)];        // belt and braces against duplicate entries
   }catch(e){
     verdict.className = 'verdict bad';

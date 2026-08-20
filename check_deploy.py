@@ -1,76 +1,99 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Verify every asset referenced by index.html, manifest and sw.js actually
-resolves. Run against the local folder AND the live site before trusting a deploy.
+"""Check that every file the app needs is actually reachable.
 
-  python3 check_deploy.py                       # local folder over http
-  python3 check_deploy.py https://user.github.io/Repo/   # live site
+  python check_deploy.py                     # check the folder this script sits in
+  python check_deploy.py https://user.github.io/Repo/    # check the live site
+
+Reads the service worker's generated PRECACHE list plus the icons named in the
+manifest and the <link> tags in index.html, then requests each one.
 """
-import json, re, sys, os, subprocess, time, urllib.request, urllib.error
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
 
-D = '/mnt/user-data/outputs/babagardening'
+HERE = os.path.dirname(os.path.abspath(__file__))
 base = sys.argv[1] if len(sys.argv) > 1 else None
-served = None
-
-if not base:
-    served = subprocess.Popen([sys.executable, '-m', 'http.server', '8901'],
-                              cwd=D, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1.5)
-    base = 'http://127.0.0.1:8901/'
-if not base.endswith('/'):
+if base and not base.endswith('/'):
     base += '/'
 
-html = open(f'{D}/index.html', encoding='utf-8').read()
-mani = json.load(open(f'{D}/manifest.webmanifest'))
-sw = open(f'{D}/sw.js', encoding='utf-8').read()
 
-refs = {}   # url -> where it came from
+def read(name):
+    """Fetch a file from the live site, or read it from this folder."""
+    if base:
+        with urllib.request.urlopen(base + name, timeout=30) as r:
+            return r.read().decode('utf-8', 'replace')
+    with open(os.path.join(HERE, name), encoding='utf-8') as f:
+        return f.read()
 
-# <link href> / <script src> that aren't data URIs
-for m in re.finditer(r'<link[^>]+href="([^"]+)"', html):
-    u = m.group(1)
-    if not u.startswith(('data:', 'http')):
-        refs.setdefault(u, []).append('index.html <link>')
 
-refs.setdefault('manifest.webmanifest', []).append('index.html <link rel=manifest>')
+def check(name):
+    """Return (status, bytes) for one asset."""
+    if base:
+        try:
+            with urllib.request.urlopen(base + name.lstrip('./'), timeout=30) as r:
+                return r.status, len(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, 0
+        except Exception as e:
+            return type(e).__name__, 0
+    path = os.path.join(HERE, name.lstrip('./'))
+    if os.path.isdir(path) or name in ('./', ''):
+        path = os.path.join(HERE, 'index.html')
+    return (200, os.path.getsize(path)) if os.path.exists(path) else (404, 0)
 
-for i in mani['icons']:
-    refs.setdefault(i['src'], []).append(f"manifest icon {i['sizes']} {i.get('purpose','any')}")
-for s in mani.get('shortcuts', []):
-    for i in s.get('icons', []):
-        refs.setdefault(i['src'], []).append('manifest shortcut icon')
 
-for m in re.finditer(r"'\./([^']+)'", sw):
-    refs.setdefault(m.group(1), []).append('sw.js precache')
+where = base or HERE
+print('Checking ' + where + '\n')
 
-# README images (shown on the repo front page)
-for m in re.finditer(r'<img src="([^"]+)"', open(f'{D}/README.md', encoding='utf-8').read()):
-    refs.setdefault(m.group(1), []).append('README image')
+try:
+    sw = read('sw.js')
+    html = read('index.html')
+    mani = json.loads(read('manifest.webmanifest'))
+except Exception as e:
+    print('Could not read the core files (sw.js / index.html / manifest.webmanifest)')
+    print('  ' + type(e).__name__ + ': ' + str(e))
+    if not base:
+        print('\nRun this from inside the folder that holds index.html, or pass the site URL:')
+        print('  python check_deploy.py https://your-user.github.io/YourRepo/')
+    sys.exit(2)
 
-print(f'Checking {len(refs)} referenced assets against {base}\n')
+version = re.search(r"CACHE_VERSION = '([^']+)'", sw)
+print('service worker version: ' + (version.group(1) if version else '?'))
+
+refs = {}
+m = re.search(r'const PRECACHE = (\[[\s\S]*?\]);', sw)
+if m:
+    for f in json.loads(m.group(1)):
+        refs.setdefault(f, []).append('sw precache')
+lz = re.search(r'const LAZY = (\[[\s\S]*?\]);', sw)
+if lz:
+    for f in json.loads(lz.group(1)):
+        refs.setdefault(f, []).append('detail image (lazy)')
+for icon in mani.get('icons', []):
+    refs.setdefault('./' + icon['src'], []).append('manifest icon ' + icon.get('sizes', ''))
+for href in re.findall(r'<link[^>]+href="([^"]+)"', html):
+    if not href.startswith(('data:', 'http')):
+        refs.setdefault('./' + href, []).append('index.html <link>')
+
+print('checking %d files\n' % len(refs))
 bad = []
-for url in sorted(refs):
-    full = base + url.lstrip('./')
-    try:
-        with urllib.request.urlopen(full, timeout=20) as r:
-            code, ctype, size = r.status, r.headers.get('Content-Type', '?'), len(r.read())
-    except urllib.error.HTTPError as e:
-        code, ctype, size = e.code, '-', 0
-    except Exception as e:
-        code, ctype, size = 'ERR', str(e)[:30], 0
-    ok = code == 200
+for name in sorted(refs):
+    status, size = check(name)
+    ok = status == 200
     if not ok:
-        bad.append((url, refs[url]))
-    print(f"  {'ok ' if ok else 'MISSING'}  {str(code):4}  {url:28s} {str(size):>9} B  {ctype.split(';')[0]}")
+        bad.append(name)
+    print('  %-7s %-5s %-26s %8s B' % ('ok' if ok else 'MISSING', status,
+                                       name.lstrip('./') or '(root)', size))
 
 print()
 if bad:
-    print('PROBLEMS — these are referenced but do not resolve:')
-    for u, where in bad:
-        print(f'  {u}\n      referenced by: {", ".join(where)}')
+    print('%d MISSING — upload these, then run this again:' % len(bad))
+    for n in bad:
+        print('  ' + n.lstrip('./') + '   (needed by: ' + ', '.join(refs[n]) + ')')
 else:
-    print('All referenced assets resolve. Safe to deploy.')
-
-if served:
-    served.terminate()
+    print('All %d files present. Safe to deploy.' % len(refs))
 sys.exit(1 if bad else 0)
