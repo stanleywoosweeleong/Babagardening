@@ -168,10 +168,17 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .sheet{
   position:fixed;left:0;right:0;bottom:0;z-index:95;background:var(--paper);
   border-radius:18px 18px 0 0;max-height:92vh;overflow-y:auto;
-  transform:translateY(101%);transition:transform .26s cubic-bezier(.32,.72,0,1);
+  /* translateY(%) is relative to the sheet's OWN height — when closed and empty
+     that is only ~60px, so it stayed peeking above the bottom edge. Park it well
+     clear and take it out of the layer entirely with visibility. */
+  transform:translateY(calc(100% + 60px));visibility:hidden;
+  transition:transform .26s cubic-bezier(.32,.72,0,1), visibility 0s linear .26s;
   padding-bottom:calc(24px + var(--safe-b));box-shadow:0 -8px 40px rgba(0,0,0,.25)
 }
-.sheet.on{transform:translateY(0)}
+.sheet.on{
+  transform:translateY(0);visibility:visible;
+  transition:transform .26s cubic-bezier(.32,.72,0,1), visibility 0s linear 0s;
+}
 @media(min-width:760px){.sheet{max-width:640px;margin:0 auto;border-radius:18px;bottom:16px;left:16px;right:16px;max-height:88vh}}
 .sgrab{position:sticky;top:0;background:var(--paper);padding:9px 0 5px;text-align:center;z-index:2;border-radius:18px 18px 0 0}
 .sgrab i{display:inline-block;width:38px;height:4px;border-radius:4px;background:rgba(20,33,27,.22)}
@@ -523,7 +530,7 @@ const T = {
     seg:["花盆 → 托盘","托盘 → 花盆","铁架 → 花盆"],
     diaMin:"Ø 最小", diaMax:"Ø 最大", htMax:"高度 最大",
     pot:"花盆", saucerDim:"托盘尺寸", noSaucer:"未列托盘",
-    fitPots:"适用花盆", notFound:"目录未收录",
+    fitPots:"适用花盆", notFound:"目录未收录", noPots:"目录未列出适用花盆",
     lHead:"询价清单", lSub:"选好包装加进来，导出给 Baba 或经销商。",
     listEmptyT:"清单是空的", listEmptyD:"在目录里点产品，选包装按「加入」。",
     wa:"WhatsApp", copy:"复制文字", csv:"下载 CSV", clear:"清空",
@@ -569,7 +576,7 @@ const T = {
     seg:["Pot → saucer","Saucer → pots","Stand → pots"],
     diaMin:"Ø min", diaMax:"Ø max", htMax:"Height max",
     pot:"Pot", saucerDim:"Saucer size", noSaucer:"No saucer listed",
-    fitPots:"Fits pots", notFound:"not in catalogue",
+    fitPots:"Fits pots", notFound:"not in catalogue", noPots:"no pots listed in the catalogue",
     lHead:"Enquiry list", lSub:"Pick pack sizes, then send the list to Baba or your dealer.",
     listEmptyT:"Your list is empty", listEmptyD:"Open a product and tap Add on a pack size.",
     wa:"WhatsApp", copy:"Copy text", csv:"Download CSV", clear:"Clear",
@@ -882,7 +889,7 @@ function renderStands(){
         `<div style="font-family:var(--mono);font-size:15px;font-weight:700">${esc(p.art)}</div>`+
         `<div class="saupots" style="margin-top:6px">`+
           (p.fits.length? p.fits.map(f=>`<span class="pill"${f.id?'':' style="background:var(--field);color:var(--ink-2)"'}>${esc(f.as)}</span>`).join('')
-            : `<span class="pill" style="background:var(--field);color:var(--ink-2)">—</span>`)+
+            : `<span class="pill" style="background:var(--field);color:var(--ink-2)">${esc(t().noPots)}</span>`)+
         `</div></div>`;
     c.onclick=()=>openSheet(p.id);
     box.appendChild(c);
