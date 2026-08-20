@@ -86,8 +86,21 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .searchbar input:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-l)}
 .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.55;font-size:1.0625rem}
 .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:6px 10px;opacity:.62;font-size:1.25rem}
-.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;scrollbar-width:none}
+/* Category chips. On phones they scroll sideways with a fade to show there's
+   more; from tablet up they simply wrap, because a hidden horizontal scrollbar
+   made the last categories unreachable with a mouse. */
+.chipwrap{position:relative;max-width:1180px;margin:0 auto}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-padding-left:14px}
 .chips::-webkit-scrollbar{display:none}
+.chipwrap::after{content:"";position:absolute;right:0;top:0;bottom:0;width:34px;
+  pointer-events:none;background:linear-gradient(to right,rgba(244,243,239,0),var(--paper));
+  opacity:1;transition:opacity .15s}
+.chipwrap.end::after{opacity:0}
+@media(min-width:700px){
+  .chips{flex-wrap:wrap;overflow:visible;padding:8px 14px 12px}
+  .chipwrap::after{display:none}
+}
 .chip{
   flex:none;padding:6px 12px;border-radius:999px;border:1px solid var(--line);
   background:var(--card);font-size:0.9375rem;font-weight:600;color:var(--ink-2);white-space:nowrap
@@ -359,7 +372,7 @@ nav button{min-height:44px}
         <button class="clr" id="qClear" hidden>×</button>
       </div>
     </div>
-    <div class="chips" id="chips"></div>
+    <div class="chipwrap" id="chipwrap"><div class="chips" id="chips"></div></div>
     <div class="wrap">
       <div class="count" id="count"></div>
       <div class="grid" id="grid"></div>
@@ -659,6 +672,13 @@ function renderChips(){
   };
   mk('all', t().all, DB.products.length);
   DB.cats.forEach(c=> counts[c.id] && mk(c.id, lang==='zh'?c.zh:c.en, counts[c.id]));
+  syncChipFade();
+}
+function syncChipFade(){
+  const box = $('#chips'), wrap = $('#chipwrap');
+  if(!box || !wrap) return;
+  const atEnd = box.scrollLeft + box.clientWidth >= box.scrollWidth - 2;
+  wrap.classList.toggle('end', atEnd || box.scrollWidth <= box.clientWidth);
 }
 function matches(p){
   if(cat!=='all' && p.cat!==cat) return false;
@@ -1113,6 +1133,8 @@ function applyLang(){
   if(activeTab==='about') renderAbout();
   if(activeTab==='pages'){ $('#pHead').textContent=t().pHead; $('#pSub').textContent=t().pSub; }
 }
+$('#chips').addEventListener('scroll', syncChipFade, {passive:true});
+window.addEventListener('resize', syncChipFade);
 $('#langBtn').onclick=()=>{ lang = lang==='zh'?'en':'zh'; store.set('baba.lang',lang); applyLang(); };
 
 /* ---- reader text size: 3 steps, scales the whole rem-based type scale ---- */
