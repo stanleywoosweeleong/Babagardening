@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>部署检查 / Deploy check · Baba Catalogue</title>
+<style>
+  :root{--green:#0B6B45;--ink:#14211B;--ink2:#4A5952;--paper:#F4F3EF;
+        --line:rgba(20,33,27,.14);--bad:#A03328;--good:#0B6B45}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-size:16px;line-height:1.5;
+       font-family:system-ui,-apple-system,"Segoe UI","Noto Sans SC","PingFang SC",sans-serif}
+  header{background:var(--green);color:#fff;padding:18px 20px}
+  header b{display:block;font-size:1.15rem}
+  header span{font-size:.9rem;opacity:.85}
+  main{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+  .verdict{border-radius:12px;padding:16px 18px;font-weight:700;font-size:1.05rem;margin:6px 0 16px}
+  .verdict.wait{background:#EDEEEC;color:var(--ink2)}
+  .verdict.ok{background:#E7F0EA;color:var(--good)}
+  .verdict.bad{background:#FBEAE7;color:var(--bad)}
+  .verdict ul{margin:10px 0 0;padding-left:20px;font-weight:600;font-size:.95rem}
+  .meta{font-family:ui-monospace,Consolas,monospace;font-size:.85rem;color:var(--ink2);margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th{background:#EDEEEC;text-align:left;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;
+     padding:9px 10px;color:var(--ink2)}
+  td{padding:8px 10px;border-top:1px solid rgba(20,33,27,.07);font-size:.9rem}
+  td.f{font-family:ui-monospace,Consolas,monospace}
+  td.n{text-align:right;font-family:ui-monospace,Consolas,monospace;color:var(--ink2);white-space:nowrap}
+  tr.bad td{background:#FBEAE7;color:var(--bad);font-weight:600}
+  .note{font-size:.85rem;color:var(--ink2);margin-top:16px;line-height:1.6}
+  button{background:var(--green);color:#fff;border:0;border-radius:9px;padding:11px 18px;
+         font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:14px}
+</style>
+</head>
+<body>
+<header>
+  <b>部署检查 / Deploy check</b>
+  <span>Baba Gardening Catalogue 2026</span>
+</header>
+<main>
+  <button id="again">重新检查 / Re-check</button>
+  <div class="verdict wait" id="verdict">检查中… / Checking…</div>
+  <div class="meta" id="meta"></div>
+  <table><thead><tr><th>File</th><th>Status</th><th>Size</th></tr></thead><tbody id="rows"></tbody></table>
+  <p class="note">
+    这个页面会读取 <code>sw.js</code> 里的档案清单，逐一确认每个档案都能下载。<br>
+    This page reads the file list out of <code>sw.js</code> and requests every one of them.<br><br>
+    <b>提示 / Tip:</b> 若要确认伺服器上的真实情况，请用无痕视窗开启本页（Ctrl+Shift+N），
+    避免离线快取给出旧的结果。<br>
+    For a true server-side check, open this page in an Incognito window so the
+    offline cache can't answer for files that are missing on the server.
+  </p>
+</main>
+<script>
+async function run(){
+  const rows = document.getElementById('rows');
+  const verdict = document.getElementById('verdict');
+  const meta = document.getElementById('meta');
+  rows.innerHTML = '';
+  verdict.className = 'verdict wait';
+  verdict.textContent = '检查中… / Checking…';
+  meta.textContent = '';
+
+  let list = [], version = '?';
+  try{
+    const sw = await (await fetch('sw.js', {cache:'no-store'})).text();
+    version = (sw.match(/CACHE_VERSION = '([^']+)'/) || [,'?'])[1];
+    list = JSON.parse(sw.match(/const PRECACHE = (\[[\s\S]*?\]);/)[1]);
+  }catch(e){
+    verdict.className = 'verdict bad';
+    verdict.textContent = '读不到 sw.js / Could not read sw.js — ' + e.message;
+    return;
+  }
+  meta.textContent = 'service worker version: ' + version + '  ·  ' + list.length + ' files';
+
+  const bad = [];
+  for(const f of list){
+    const name = f.replace(/^\.\//, '');
+    let status = 'ERR', size = 0;
+    try{
+      const r = await fetch(name || './', {cache:'no-store'});
+      status = r.status;
+      size = (await r.blob()).size;
+    }catch(e){ status = 'ERR'; }
+    const ok = status === 200;
+    if(!ok) bad.push(name || '(root)');
+    const tr = document.createElement('tr');
+    if(!ok) tr.className = 'bad';
+    tr.innerHTML = '<td class="f">' + (name || '(root)') + '</td><td>' +
+                   (ok ? 'ok' : 'MISSING ' + status) + '</td><td class="n">' +
+                   (size ? (size/1024).toFixed(0) + ' KB' : '—') + '</td>';
+    rows.appendChild(tr);
+  }
+
+  if(bad.length){
+    verdict.className = 'verdict bad';
+    verdict.innerHTML = '缺少 ' + bad.length + ' 个档案 / ' + bad.length +
+      ' file(s) missing — 请上传以下档案：<ul>' +
+      bad.map(b => '<li>' + b + '</li>').join('') + '</ul>';
+  }else{
+    verdict.className = 'verdict ok';
+    verdict.textContent = '✓ 全部 ' + list.length + ' 个档案齐全 / All ' +
+      list.length + ' files present';
+  }
+}
+document.getElementById('again').onclick = run;
+run();
+</script>
+</body>
+</html>
