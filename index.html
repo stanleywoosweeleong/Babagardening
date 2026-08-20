@@ -307,6 +307,14 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .vtop button{color:#fff;padding:6px 12px;border:1px solid rgba(255,255,255,.3);border-radius:8px;font-size:1rem}
 .vscroll{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px}
 .vscroll img{max-width:100%;height:auto;border-radius:4px}
+.vzoom{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.vzoom .z{width:min(88vw,88vh);height:min(88vw,88vh);background-repeat:no-repeat;
+  border-radius:12px;box-shadow:0 12px 50px rgba(0,0,0,.45)}
+.zoomable{cursor:zoom-in}
+.zhint{position:absolute;right:7px;bottom:7px;width:26px;height:26px;border-radius:7px;
+  background:rgba(255,255,255,.88);color:var(--ink-2);display:flex;align-items:center;
+  justify-content:center;font-size:.8125rem;pointer-events:none;
+  box-shadow:0 1px 3px rgba(0,0,0,.18)}
 
 /* ---------- share ---------- */
 .qrcard{background:var(--card);border:1px solid var(--line-s);border-radius:16px;
@@ -648,7 +656,7 @@ const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>'
 
 /* Each page image is registered once as a CSS custom property, so a card's
    style attribute stays a few bytes instead of carrying a 150 kB data URI. */
-function thumb(p, extraStyle, overlay){
+function thumb(p, extraStyle, overlay, zoom){
   /* Tiles are pre-rendered: product lifted off its catalogue panel and centred
      on flat grey. All of them live in one sprite, so this is pure positioning —
      no cropping maths, nothing from the page can leak in. */
@@ -661,7 +669,10 @@ function thumb(p, extraStyle, overlay){
          `background-position:${cx.toFixed(4)}% ${cy.toFixed(4)}%;background-repeat:no-repeat`;
   }
   if(extraStyle) st += ';' + extraStyle;
-  return `<div class="thumb" style="${st}">${overlay || ''}</div>`;
+  const z = zoom && p.tile >= 0 ? ' zoomable' : '';
+  const hint = zoom && p.tile >= 0 ? '<span class="zhint">⤢</span>' : '';
+  return `<div class="thumb${z}" style="${st}"${zoom ? ` data-zoom="${esc(p.id)}"` : ''}>`+
+         `${overlay || ''}${hint}</div>`;
 }
 function dotsHtml(keys, max){
   if(!keys||!keys.length) return '';
@@ -806,14 +817,18 @@ function renderGrid(){
       meta = o.art || (o.packs[0] && o.packs[0].code) || '';
     }
     c.innerHTML =
-      thumb(o, '', o.flags.includes('new') ? `<span class="badge">NEW</span>` : '') +
+      thumb(o, '', o.flags.includes('new') ? `<span class="badge">NEW</span>` : '', true) +
       `<div class="pbody">`+
         `<div class="pname">${esc(L(o,'name'))}</div>`+
         `<div class="palt">${esc(ALT(o,'name'))}</div>`+
         (meta ? `<div class="${e.kind === 'g' ? 'pmeta' : 'pcode'}">${esc(meta)}</div>` : '')+
         dotsHtml(o.colours,6)+
       `</div>`;
-    c.onclick = () => {
+    c.onclick = (ev) => {
+      if(ev.target.closest('[data-zoom]')){
+        ev.stopPropagation();
+        return openTileViewer(o, L(o,'name'));
+      }
       if(e.kind !== 'g') return openSheet(o.id);
       // searching an art number should land on that exact size, not just the series
       const hit = query ? e.members.find(m => m._s.includes(query)) : null;
@@ -833,7 +848,7 @@ function openGroup(gid, preselectId){
   const sel = DB.byId[SIZE_PICK[gid]];
 
   let h = `<div class="shero">
-      ${thumb(g, 'width:118px;flex:none;border-radius:10px;border:1px solid var(--line-s);aspect-ratio:1/1')}
+      ${thumb(g, 'width:118px;flex:none;border-radius:10px;border:1px solid var(--line-s);aspect-ratio:1/1', '', true)}
       <div style="flex:1;min-width:0">
         <div class="stitle">${esc(L(g,'name'))}</div>
         <div class="salt">${esc(ALT(g,'name'))}</div>
@@ -891,6 +906,7 @@ function openGroup(gid, preselectId){
 
   const b = $('#sheetBody');
   b.innerHTML = h; b.scrollTop = 0; $('#sheet').scrollTop = 0;
+  b.querySelectorAll('[data-zoom]').forEach(n => n.onclick = () => openTileViewer(g, L(g,'name')));
   b.querySelectorAll('[data-size]').forEach(n => n.onclick = () => openGroup(gid, n.dataset.size));
   b.querySelectorAll('[data-col]').forEach(n => n.onclick = () => {
     COLOUR_PICK[sel.id] = (COLOUR_PICK[sel.id] === n.dataset.col) ? null : n.dataset.col;
@@ -991,6 +1007,7 @@ function openSheet(id, push=true){
     COLOUR_PICK[p.id] = (COLOUR_PICK[p.id] === n.dataset.col) ? null : n.dataset.col;
     openSheet(id, false);
   });
+  b.querySelectorAll('[data-zoom]').forEach(n=>n.onclick=()=>openTileViewer(p, L(p,'name')));
   b.querySelectorAll('[data-add]').forEach(n=>n.onclick=()=>{ addToList(n.dataset.add); openSheet(id,false); });
   b.querySelectorAll('[data-open]').forEach(n=>n.onclick=()=>openAny(n.dataset.open));
   b.querySelectorAll('[data-page]').forEach(n=>n.onclick=()=>{ closeSheet(); openViewer(+n.dataset.page-1); });
@@ -1164,15 +1181,35 @@ function renderPages(){
   });
   g.dataset.done='1';
 }
-let vIndex=0;
+let vIndex=0, vMode='page';
+function openTileViewer(o, label){
+  const {cols, rows} = DB.sprite;
+  if(o.tile == null || o.tile < 0) return;
+  const cx = cols > 1 ? (o.tile % cols) / (cols - 1) * 100 : 0;
+  const cy = rows > 1 ? Math.floor(o.tile / cols) / (rows - 1) * 100 : 0;
+  vMode = 'tile';
+  $('#vLabel').textContent = label || '';
+  $('#vPrev').style.display = 'none'; $('#vNext').style.display = 'none';
+  $('#vScroll').innerHTML =
+    `<div class="vzoom"><div class="z" style="background-image:url('${SPRITE}');`+
+    `background-size:${cols * 100}% ${rows * 100}%;`+
+    `background-position:${cx.toFixed(4)}% ${cy.toFixed(4)}%"></div></div>`;
+  $('#viewer').classList.add('on'); document.body.style.overflow='hidden';
+}
 function openViewer(i){
+  vMode='page';
+  $('#vPrev').style.display=''; $('#vNext').style.display='';
   vIndex=Math.max(0,Math.min(PAGES.length-1,i));
   $('#vLabel').textContent=t().page(vIndex+1)+' / '+PAGES.length;
   $('#vScroll').innerHTML=`<img src="${PAGES[vIndex]}" alt="">`;
   $('#vScroll').scrollTop=0;
   $('#viewer').classList.add('on'); document.body.style.overflow='hidden';
 }
-$('#vClose').onclick=()=>{ $('#viewer').classList.remove('on'); document.body.style.overflow=''; };
+$('#vClose').onclick=()=>{
+  $('#viewer').classList.remove('on');
+  // the detail sheet may still be open behind it — keep the scroll lock if so
+  if(!$('#sheet').classList.contains('on')) document.body.style.overflow='';
+};
 $('#vPrev').onclick=()=>openViewer(vIndex-1);
 $('#vNext').onclick=()=>openViewer(vIndex+1);
 
