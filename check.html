@@ -45,17 +45,22 @@
   <p class="note">
     这个页面会读取 <code>sw.js</code> 里的档案清单，逐一确认每个档案都能下载。<br>
     This page reads the file list out of <code>sw.js</code> and requests every one of them.<br><br>
-    <b>提示 / Tip:</b> 若要确认伺服器上的真实情况，请用无痕视窗开启本页（Ctrl+Shift+N），
-    避免离线快取给出旧的结果。<br>
-    For a true server-side check, open this page in an Incognito window so the
-    offline cache can't answer for files that are missing on the server.
-  </p>
+    <b>提示 / Tip:</b> 本页会绕过离线快取直接询问伺服器，所以结果就是 GitHub 上的真实情况。<br>
+    This page bypasses the offline cache and asks the server directly, so the result
+    reflects what is really on GitHub.
+</p>
 </main>
 <script>
+let running = false;
+
 async function run(){
+  if(running) return;                 // a re-check while one is in flight was
+  running = true;                     // stacking duplicate rows on top of each other
+  const btn = document.getElementById('again');
   const rows = document.getElementById('rows');
   const verdict = document.getElementById('verdict');
   const meta = document.getElementById('meta');
+  btn.disabled = true;
   rows.innerHTML = '';
   verdict.className = 'verdict wait';
   verdict.textContent = '检查中… / Checking…';
@@ -63,32 +68,52 @@ async function run(){
 
   let list = [], version = '?';
   try{
-    const sw = await (await fetch('sw.js', {cache:'no-store'})).text();
+    const sw = await (await fetch('sw.js?nosw=' + Date.now(), {cache:'no-store'})).text();
     version = (sw.match(/CACHE_VERSION = '([^']+)'/) || [,'?'])[1];
     list = JSON.parse(sw.match(/const PRECACHE = (\[[\s\S]*?\]);/)[1]);
+    list = [...new Set(list)];        // belt and braces against duplicate entries
   }catch(e){
     verdict.className = 'verdict bad';
     verdict.textContent = '读不到 sw.js / Could not read sw.js — ' + e.message;
+    btn.disabled = false; running = false;
     return;
   }
   meta.textContent = 'service worker version: ' + version + '  ·  ' + list.length + ' files';
 
-  const bad = [];
-  for(const f of list){
-    const name = f.replace(/^\.\//, '');
+  const results = new Array(list.length);
+  let done = 0;
+
+  // HEAD instead of GET: we only need to know it exists, so nothing is
+  // downloaded. ?nosw= makes the service worker step aside.
+  async function probe(i){
+    const name = list[i].replace(/^\.\//, '');
+    const url = (name || 'index.html') + '?nosw=' + Date.now() + '-' + i;
     let status = 'ERR', size = 0;
     try{
-      const r = await fetch(name || './', {cache:'no-store'});
+      const r = await fetch(url, {method:'HEAD', cache:'no-store'});
       status = r.status;
-      size = (await r.blob()).size;
+      size = parseInt(r.headers.get('content-length') || '0', 10);
     }catch(e){ status = 'ERR'; }
-    const ok = status === 200;
-    if(!ok) bad.push(name || '(root)');
+    results[i] = {name: name || '(root)', status, size};
+    done++;
+    verdict.textContent = '检查中 / Checking… ' + done + ' / ' + list.length;
+  }
+
+  const queue = list.map((_, i) => i);
+  const workers = Array.from({length: 6}, async () => {   // 6 at a time
+    while(queue.length) await probe(queue.shift());
+  });
+  await Promise.all(workers);
+
+  const bad = [];
+  for(const r of results){
+    const ok = r.status === 200;
+    if(!ok) bad.push(r.name);
     const tr = document.createElement('tr');
     if(!ok) tr.className = 'bad';
-    tr.innerHTML = '<td class="f">' + (name || '(root)') + '</td><td>' +
-                   (ok ? 'ok' : 'MISSING ' + status) + '</td><td class="n">' +
-                   (size ? (size/1024).toFixed(0) + ' KB' : '—') + '</td>';
+    tr.innerHTML = '<td class="f">' + r.name + '</td><td>' +
+                   (ok ? 'ok' : 'MISSING ' + r.status) + '</td><td class="n">' +
+                   (r.size ? (r.size/1024).toFixed(0) + ' KB' : '—') + '</td>';
     rows.appendChild(tr);
   }
 
@@ -102,6 +127,8 @@ async function run(){
     verdict.textContent = '✓ 全部 ' + list.length + ' 个档案齐全 / All ' +
       list.length + ' files present';
   }
+  btn.disabled = false;
+  running = false;
 }
 document.getElementById('again').onclick = run;
 run();
