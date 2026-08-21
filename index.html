@@ -901,14 +901,28 @@ function openGroup(gid, preselectId){
   h += `<button class="pagebtn" data-page="${g.page}">${esc(t().viewPage(g.page))}</button>`;
 
   const b = $('#sheetBody');
-  b.innerHTML = h; b.scrollTop = 0; $('#sheet').scrollTop = 0;
+  const keep = SHEET_KEY === 'g:' + gid ? $('#sheet').scrollTop : 0;
+  SHEET_KEY = 'g:' + gid;
+  b.innerHTML = h;
+  $('#sheet').scrollTop = keep;
   b.querySelectorAll('[data-zoom]').forEach(n => n.onclick = () => openTileViewer(g, L(g,'name')));
   b.querySelectorAll('[data-size]').forEach(n => n.onclick = () => openGroup(gid, n.dataset.size));
+  /* Colour and quantity update the DOM in place. Re-rendering the sheet reset
+     its scroll position, throwing the reader back to the top mid-decision. */
+  function syncAdd(){
+    const btn = b.querySelector('.addbig'); if(!btn) return;
+    const k = sel.id + '|0|' + (COLOUR_PICK[sel.id] || '');
+    btn.dataset.add = k;
+    btn.classList.toggle('in', !!LIST[k]);
+    btn.textContent = LIST[k] ? t().added + ' ×' + LIST[k] : t().addThis;
+  }
   b.querySelectorAll('[data-col]').forEach(n => n.onclick = () => {
     COLOUR_PICK[sel.id] = (COLOUR_PICK[sel.id] === n.dataset.col) ? null : n.dataset.col;
-    openGroup(gid);
+    b.querySelectorAll('[data-col]').forEach(x =>
+      x.setAttribute('aria-pressed', String(COLOUR_PICK[sel.id] === x.dataset.col)));
+    syncAdd();
   });
-  b.querySelectorAll('[data-add]').forEach(n => n.onclick = () => { addToList(n.dataset.add); openGroup(gid); });
+  b.querySelectorAll('[data-add]').forEach(n => n.onclick = () => { addToList(n.dataset.add); syncAdd(); });
   b.querySelectorAll('[data-open]').forEach(n => n.onclick = () => openAny(n.dataset.open));
   b.querySelectorAll('[data-page]').forEach(n => n.onclick = () => { closeSheet(); openViewer(+n.dataset.page - 1); });
   $('#sheet').classList.add('on'); $('#scrim').classList.add('on');
@@ -916,7 +930,7 @@ function openGroup(gid, preselectId){
 }
 
 /* ============================ detail sheet ============================ */
-let sheetHistory = [];
+let sheetHistory = [], SHEET_KEY = null;
 const COLOUR_PICK = {};
 function openSheet(id, push=true){
   const p = DB.byId[id]; if(!p) return;
@@ -996,15 +1010,28 @@ function openSheet(id, push=true){
   if(p.note) h += `<div class="note"><b>⚠ ${esc(t().warn)}</b>${esc(lang==='zh'?p.note.zh:p.note.en)}</div>`;
 
   h += `<button class="pagebtn" data-page="${p.page}">${esc(t().viewPage(p.page))}</button>`;
+  const keep = SHEET_KEY === 'p:' + id ? $('#sheet').scrollTop : 0;
+  SHEET_KEY = 'p:' + id;
   b.innerHTML=h;
-  b.scrollTop=0; $('#sheet').scrollTop=0;
+  $('#sheet').scrollTop = keep;
 
+  function syncPacks(){
+    b.querySelectorAll('.pack').forEach((row, i) => {
+      const btn = row.querySelector('.add'); if(!btn) return;
+      const k = p.id + '|' + i + '|' + (COLOUR_PICK[p.id] || '');
+      btn.dataset.add = k;
+      btn.classList.toggle('in', !!LIST[k]);
+      btn.textContent = LIST[k] ? t().added : t().add;
+    });
+  }
   b.querySelectorAll('[data-col]').forEach(n=>n.onclick=()=>{
     COLOUR_PICK[p.id] = (COLOUR_PICK[p.id] === n.dataset.col) ? null : n.dataset.col;
-    openSheet(id, false);
+    b.querySelectorAll('[data-col]').forEach(x =>
+      x.setAttribute('aria-pressed', String(COLOUR_PICK[p.id] === x.dataset.col)));
+    syncPacks();
   });
   b.querySelectorAll('[data-zoom]').forEach(n=>n.onclick=()=>openTileViewer(p, L(p,'name')));
-  b.querySelectorAll('[data-add]').forEach(n=>n.onclick=()=>{ addToList(n.dataset.add); openSheet(id,false); });
+  b.querySelectorAll('[data-add]').forEach(n=>n.onclick=()=>{ addToList(n.dataset.add); syncPacks(); });
   b.querySelectorAll('[data-open]').forEach(n=>n.onclick=()=>openAny(n.dataset.open));
   b.querySelectorAll('[data-page]').forEach(n=>n.onclick=()=>{ closeSheet(); openViewer(+n.dataset.page-1); });
   b.querySelectorAll('[data-saucer]').forEach(n=>n.onclick=()=>{
@@ -1016,7 +1043,7 @@ function openSheet(id, push=true){
 }
 function closeSheet(){
   $('#sheet').classList.remove('on'); $('#scrim').classList.remove('on');
-  document.body.style.overflow=''; sheetHistory=[];
+  document.body.style.overflow=''; sheetHistory=[]; SHEET_KEY=null;
 }
 $('#scrim').onclick=closeSheet; $('#sheetClose').onclick=closeSheet;
 
