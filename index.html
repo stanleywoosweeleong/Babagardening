@@ -55,10 +55,10 @@ header{
   background:rgba(244,243,239,.92);backdrop-filter:saturate(1.6) blur(10px);
   -webkit-backdrop-filter:saturate(1.6) blur(10px);
   border-bottom:1px solid var(--line);
-  padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 0;
+  padding:calc(env(safe-area-inset-top,0px) + 8px) 14px 0;
 }
 @supports not (backdrop-filter:blur(2px)){header{background:var(--paper)}}
-.brandrow{display:flex;align-items:center;gap:10px;min-height:52px}
+.brandrow{display:flex;align-items:center;gap:10px;min-height:46px}
 .markbtn{
   /* Tapping the wordmark cycles the reader text size — one control fewer. */
   flex:none;display:flex;align-items:center;gap:5px;padding:6px 8px;margin-left:-8px;
@@ -78,7 +78,7 @@ header{
 nav{display:flex;gap:2px;margin-top:10px;overflow-x:auto;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 nav button{
-  flex:1 0 auto;padding:9px 14px 10px;font-size:1rem;font-weight:700;
+  flex:1 0 auto;padding:8px 14px 9px;font-size:1rem;font-weight:700;
   color:var(--ink-2);border-bottom:3px solid transparent;white-space:nowrap;
 }
 nav button[aria-selected="true"]{color:var(--green-d);border-bottom-color:var(--green)}
@@ -90,11 +90,11 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .wrap{max-width:1180px;margin:0 auto;padding:0 14px}
 
 /* ---------- search + filters ---------- */
-.searchbar{position:sticky;top:0;z-index:40;background:var(--paper);padding:12px 14px 8px;
+.searchbar{position:sticky;top:0;z-index:40;background:var(--paper);padding:8px 14px 6px;
   box-shadow:0 6px 12px -12px rgba(0,0,0,.5)}
 .searchbar .inner{max-width:1180px;margin:0 auto;position:relative}
 .searchbar input{
-  width:100%;padding:11px 40px 11px 38px;border-radius:10px;border:1px solid var(--line);
+  width:100%;padding:10px 40px 10px 38px;border-radius:10px;border:1px solid var(--line);
   background:var(--card);font-size:1.0625rem;outline:none
 }
 .searchbar input:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-l)}
@@ -111,7 +111,7 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 /* Category filter. On a phone 15 chips are a long scrolling row, so they
    collapse behind a single button showing the current filter and expand inline.
    From tablet up there is room to simply show them all, wrapped. */
-.chipwrap{position:relative;max-width:1180px;margin:0 auto;padding:0 14px 10px}
+.chipwrap{position:relative;max-width:1180px;margin:0 auto;padding:0 14px 8px}
 .catbtn{display:none;width:100%;align-items:center;gap:8px;background:var(--card);
   border:1px solid var(--line);border-radius:10px;padding:11px 14px;min-height:46px;
   font-size:1rem;font-weight:600;text-align:left}
