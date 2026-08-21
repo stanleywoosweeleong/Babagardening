@@ -599,7 +599,7 @@ const T = {
   zh:{
     title:"园艺产品目录 2026",
     tabs:["目录","配对","清单","原页","分享","关于"],
-    search:"搜索名称、货号、包装…",
+    search:"搜索：名称、货号、baja、pasu…",
     all:"全部",
     count:n=>`${n} 项产品`,
     noneT:"没有符合的产品", noneD:"换个关键词，或点上面的分类看看。",
@@ -667,7 +667,7 @@ const T = {
   en:{
     title:"Gardening Catalogue 2026",
     tabs:["Catalogue","Match","List","Pages","Share","About"],
-    search:"Search name, art no., pack size…",
+    search:"Search: name, art no., baja, pasu…",
     all:"All",
     count:n=>`${n} products`,
     noneT:"Nothing matches", noneD:"Try another word, or pick a category above.",
@@ -825,6 +825,81 @@ function setTab(id){
   if(id==='about') renderAbout();
 }
 
+/* ============================ search ============================ */
+/* Two things people actually type that plain substring matching missed:
+   an art number without its prefix or hyphens ("eg310", "8103"), and the
+   Malay or trade word for a category ("baja", "pasu", "racun", "benih"). */
+const NORM = s => String(s || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '');
+
+const CAT_WORDS = {
+  pot:    'pasu pot planter bekas 花盆 盆',
+  saucer: 'piring tapak saucer dulang 托盘 底盘',
+  spray:  'racun semburan spray pesticide organik 喷剂 杀虫 有机',
+  ofert:  'baja pupuk fertilizer organik 肥料 有机肥 化肥',
+  home:   'rumah home serangga insect semut nyamuk lipas 家居 杀虫 蚂蚁 蚊',
+  biocon: 'racun pesticide pekat concentrate kulat fungicide 农药 浓缩 杀菌',
+  pro:    'baja daun foliar pro cecair liquid 叶面肥 液肥',
+  bulk:   'baja karung sack 25kg ladang farm 大包 农用',
+  soil:   'tanah soil media campuran potting peat 泥 土 种植土',
+  tool:   'alat tool gunting scissors pruner cangkul 工具 剪',
+  gadget: 'aksesori accessory pagar fencing sarung glove 配件',
+  stand:  'rak besi stand iron penyangkut 铁架 支架',
+  seedv:  'benih seed sayur vegetable biji 种子 蔬菜',
+  seedf:  'benih seed bunga flower biji 种子 花卉'
+};
+
+/* Brand names appear on the packaging but not in the product data, and dealers
+   ask for "Mr. Ganick" or "Baba Leisure" by name. */
+const BRANDS = {
+  spray: 'mrganick ganick 全能 有机', ofert: 'mrganick ganick', home: 'mrganick ganick',
+  biocon: 'mrganick ganick', pro: 'mrganick ganick proseries', bulk: 'mrganick ganick',
+  soil: 'baba', pot: 'baba', saucer: 'baba', tool: 'baba', gadget: 'baba', stand: 'baba',
+  seedv: 'baba babaleisure leisure smartgrow', seedf: 'baba babaleisure leisure smartgrow'
+};
+
+function indexProduct(p){
+  const cat = DB.cats.find(c => c.id === p.cat) || {};
+  p._codes = [p.art].concat((p.packs || []).map(k => k.code))
+                    .filter(Boolean).map(NORM);
+  p._names = [p.name_zh, p.name_en, p.series_zh, p.series_en].filter(Boolean).map(NORM);
+  // category words kept separate so "baja" / "fertilizer" ranks the fertilisers
+  // above a *gadget* whose name merely starts with the word (Fertilizer Funnel)
+  p._cw = NORM([cat.zh, cat.en, CAT_WORDS[p.cat] || '', BRANDS[p.cat] || ''].join(' '));
+  p._t = NORM([p.name_zh, p.name_en, p.series_zh, p.series_en, p.desc_zh, p.desc_en,
+               p.spec_zh, p.spec_en, (p.packs || []).map(k => k.size).join(' ')].join(' '));
+  // keep the old loose haystack too — cheap, and it catches odd punctuation
+  p._s = [p.name_zh, p.name_en, p.series_zh, p.series_en, p.desc_zh, p.desc_en, p.art,
+          p.spec_zh, p.spec_en, ...(p.packs || []).map(k => (k.code || '') + ' ' + (k.size || ''))]
+         .join(' ').toLowerCase();
+}
+
+/* score one token against one product — 0 means "no match" */
+function tokenScore(o, tok){
+  let best = 0;
+  (o._codes || []).forEach(c => {
+    if (c === tok) best = Math.max(best, 100);          // exact art number
+    else if (c.endsWith(tok)) best = Math.max(best, 80); // "eg310" -> BI-EG-310
+    else if (c.startsWith(tok)) best = Math.max(best, 70);
+    else if (c.includes(tok)) best = Math.max(best, 55);
+  });
+  (o._names || []).forEach(n => {
+    if (n.startsWith(tok)) best = Math.max(best, 45);
+    else if (n.includes(tok)) best = Math.max(best, 32);
+  });
+  if ((o._cw || '').includes(tok)) best = Math.max(best, 48);  // category / Malay term
+  if (!best && (o._t || '').includes(tok)) best = 12;           // description, pack size
+  return best;
+}
+function scoreOf(o, toks){
+  let total = 0;
+  for (const tok of toks){
+    const s = tokenScore(o, tok);
+    if (!s) return 0;                                    // every token must match
+    total += s;
+  }
+  return total;
+}
+
 /* ============================ grouping ============================ */
 /* The printed booklet's unit is the SERIES: one photo, one table of sizes.
    Listing every art number separately made 287 near-identical cards, which is
@@ -864,6 +939,11 @@ function buildGroups(){
     g.flags = g.members.some(m => m.flags.includes('new')) ? ['new'] : [];
     g._s = g.members.map(m => m._s).join(' ') + ' ' +
            (g.name_zh + ' ' + g.name_en).toLowerCase();
+    g._codes = g.members.reduce((a, m) => a.concat(m._codes || []), []);
+    g._names = [g.name_zh, g.name_en].filter(Boolean).map(NORM)
+                 .concat(g.members.reduce((a, m) => a.concat(m._names || []), []));
+    g._t = g.members.map(m => m._t).join(' ');
+    g._cw = g.members[0]._cw || '';
     const noted = g.members.find(m => m.note);
     g.note = noted ? noted.note : null;
   });
@@ -898,18 +978,30 @@ function syncChipFade(){
   const atEnd = box.scrollLeft + box.clientWidth >= box.scrollWidth - 2;
   wrap.classList.toggle('end', atEnd || box.scrollWidth <= box.clientWidth);
 }
-function entryVisible(e){
+let QUERY_TOKENS = [];
+function entryScore(e){
   const c = e.kind === 'g' ? e.cat : e.p.cat;
-  if(cat !== 'all' && c !== cat) return false;
-  if(!query) return true;
-  return (e.kind === 'g' ? e._s : e.p._s).includes(query);
+  if(cat !== 'all' && c !== cat) return 0;
+  if(!QUERY_TOKENS.length) return 1;
+  return scoreOf(e.kind === 'g' ? e : e.p, QUERY_TOKENS);
+}
+function bestMember(e){
+  // which size inside a series actually matched, so the sheet can preselect it
+  if(e.kind !== 'g' || !QUERY_TOKENS.length) return null;
+  let best = null, bs = 0;
+  e.members.forEach(m => { const s = scoreOf(m, QUERY_TOKENS); if(s > bs){ bs = s; best = m; } });
+  return best;
 }
 function productCount(list){
   return list.reduce((n, e) => n + (e.kind === 'g' ? e.members.length : 1), 0);
 }
 function renderGrid(){
   const g=$('#grid'); g.innerHTML='';
-  const list = ENTRIES.filter(entryVisible);
+  const scored = [];
+  ENTRIES.forEach(e => { const s = entryScore(e); if(s > 0) scored.push([s, e]); });
+  // sort is stable, so equal scores keep catalogue order
+  if(QUERY_TOKENS.length) scored.sort((a, b) => b[0] - a[0]);
+  const list = scored.map(x => x[1]);
   $('#count').textContent = t().count(productCount(list));
   $('#empty').hidden = list.length>0;
   if(!list.length){
@@ -938,7 +1030,7 @@ function renderGrid(){
     c.onclick = () => {
       if(e.kind !== 'g') return openSheet(o.id);
       // searching an art number should land on that exact size, not just the series
-      const hit = query ? e.members.find(m => m._s.includes(query)) : null;
+      const hit = bestMember(e);
       openGroup(e.id, hit ? hit.id : null);
     };
     frag.appendChild(c);
@@ -1684,9 +1776,7 @@ function applyProducts(){
   DB.products.forEach(p => {
     DB.byId[p.id] = p;
     if (!p.packs) p.packs = [];
-    p._s = [p.name_zh, p.name_en, p.series_zh, p.series_en, p.desc_zh, p.desc_en, p.art,
-            p.spec_zh, p.spec_en, ...p.packs.map(k => (k.code || '') + ' ' + (k.size || ''))]
-           .join(' ').toLowerCase();
+    indexProduct(p);
     if (p.cat === 'stand') DB.standIdBy[p.art] = p.id;
     if (p.cat === 'saucer') DB.saucerIdBy[p.art] = p.id;
   });
@@ -1943,6 +2033,12 @@ function renderAbout(){
     <p>规格、货号、包装、颜色一律照印刷版收录，未作推测。第 2 页大罗马系列四个货号印着相同尺寸，疑为印刷错误，已在该产品页标注 —— 照录原文，请向 Baba 核实。</p>
     <p>种子的中文名属翻译，方便搜索，并非目录原文；种子包装上的原文请看原版页面。</p>
     ${certLegend()}
+    <h3>搜索</h3>
+    <p>可以直接输入货号，前缀和短横线都可以省略 —— 打 <code>eg310</code> 就能找到 BI-EG-310，
+    打 <code>8103</code> 能找到那包 549 开花肥。也支持马来语和行内用语：
+    <code>baja</code>、<code>pasu</code>、<code>racun</code>、<code>benih</code>、<code>tanah</code>、
+    <code>rak besi</code>、<code>alat</code>，以及品牌名 <code>Baba</code>、<code>Mr. Ganick</code>。
+    多个词会一起缩小范围。</p>
     <h3>字体大小</h3>
     <p>点一下左上角的 <b>Baba</b> 标志，就能在「标准 / 大字 / 特大」之间切换，方便在阳光下或视力较弱时阅读。设定会记住。</p>
     <h3>离线使用</h3>
@@ -1974,6 +2070,12 @@ function renderAbout(){
     <p>Chinese seed names are translations added for search; they are not catalogue text. See the original pages for
     the packet wording.</p>
     ${certLegend()}
+    <h3>Search</h3>
+    <p>Type an art number with or without its prefix and hyphens — <code>eg310</code> finds BI-EG-310,
+    <code>8103</code> finds the 549 Flower Bloom pack. Malay and trade words work too:
+    <code>baja</code>, <code>pasu</code>, <code>racun</code>, <code>benih</code>, <code>tanah</code>,
+    <code>rak besi</code>, <code>alat</code> — as do the brand names <code>Baba</code> and
+    <code>Mr. Ganick</code>. Several words together narrow the results.</p>
     <h3>Text size</h3>
     <p>Tap the <b>Baba</b> logo in the top left to cycle through Standard / Large / Largest — useful in bright sun
     or for tired eyes. Your choice is remembered.</p>
@@ -2032,10 +2134,11 @@ $('#sizeBtn').onclick=()=>{
 /* ============================ search ============================ */
 $('#q').oninput=e=>{
   query = e.target.value.trim().toLowerCase();
+  QUERY_TOKENS = query.split(/\s+/).map(NORM).filter(Boolean);
   $('#qClear').hidden = !query;
   renderGrid();
 };
-$('#qClear').onclick=()=>{ $('#q').value=''; query=''; $('#qClear').hidden=true; renderGrid(); };
+$('#qClear').onclick=()=>{ $('#q').value=''; query=''; QUERY_TOKENS=[]; $('#qClear').hidden=true; renderGrid(); };
 
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
