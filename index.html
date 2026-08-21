@@ -289,6 +289,7 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .qty input{width:38px;text-align:center;border:0;background:none;font-family:var(--mono);
   font-size:1rem;font-weight:700;padding:0}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 8px}
+.actions[hidden]{display:none}
 .btn{flex:1;min-width:130px;padding:12px;border-radius:10px;font-size:1rem;font-weight:700;text-align:center}
 .btn.pri{background:var(--green);color:#fff}
 .btn.sec{background:var(--card);border:1px solid var(--line);color:var(--ink)}
@@ -501,7 +502,7 @@ nav button{min-height:44px}
       <div class="actions" id="listActions" hidden>
         <button class="btn pri" id="waBtn">WhatsApp</button>
         <button class="btn sec" id="copyBtn">复制文字</button>
-        <button class="btn sec" id="csvBtn">下载 CSV</button>
+        <button class="btn sec" id="csvBtn">下载 Excel</button>
         <button class="btn dgr" id="clearBtn">清空</button>
       </div>
     </div>
@@ -623,7 +624,7 @@ const T = {
     edUser:"新增", edEdited:"已修改",
     lHead:"询价清单", lSub:"选好包装加进来，导出给 Baba 或经销商。",
     listEmptyT:"清单是空的", listEmptyD:"在目录里点产品，选包装按「加入」。",
-    wa:"WhatsApp", copy:"复制文字", csv:"下载 CSV", clear:"清空",
+    wa:"WhatsApp", copy:"复制文字", csv:"下载 Excel", clear:"清空",
     copied:"已复制到剪贴板", cleared:"清单已清空", confirmClear:"确定清空整份清单？",
     pHead:"原版页面", pSub:"28 页原始目录，全部离线内置。",
     page:n=>`第 ${n} 页`,
@@ -688,7 +689,7 @@ const T = {
     edUser:"added", edEdited:"edited",
     lHead:"Enquiry list", lSub:"Pick pack sizes, then send the list to Baba or your dealer.",
     listEmptyT:"Your list is empty", listEmptyD:"Open a product and tap Add on a pack size.",
-    wa:"WhatsApp", copy:"Copy text", csv:"Download CSV", clear:"Clear",
+    wa:"WhatsApp", copy:"Copy text", csv:"Download Excel", clear:"Clear",
     copied:"Copied to clipboard", cleared:"List cleared", confirmClear:"Clear the whole list?",
     pHead:"Original pages", pSub:"All 28 catalogue pages, stored offline.",
     page:n=>`Page ${n}`,
@@ -1218,6 +1219,8 @@ function parseKey(key){
 }
 function renderList(){
   $('#lHead').textContent=t().lHead; $('#lSub').textContent=t().lSub;
+  $('#waBtn').textContent=t().wa; $('#copyBtn').textContent=t().copy;
+  $('#csvBtn').textContent=t().csv; $('#clearBtn').textContent=t().clear;
   const box=$('#listBox'); box.innerHTML='';
   const keys=Object.keys(LIST).filter(k=>LIST[k]>0);
   $('#listActions').hidden = !keys.length;
@@ -1243,9 +1246,125 @@ function renderList(){
     };
     box.appendChild(row);
   });
-  $('#waBtn').textContent=t().wa; $('#copyBtn').textContent=t().copy;
-  $('#csvBtn').textContent=t().csv; $('#clearBtn').textContent=t().clear;
 }
+
+/* ---- minimal .xlsx writer -------------------------------------------------
+   An .xlsx is a ZIP of XML parts. We can't pull in a library (the app must work
+   offline), so this writes the ZIP directly using STORED entries — no deflate
+   needed, just a correct CRC32. Excel, WPS and Google Sheets all open it. */
+const CRC_T = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_T[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function zipStored(files){
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const u16 = n => [n & 255, (n >> 8) & 255];
+  const u32 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >> 24) & 255];
+  files.forEach(f => {
+    const name = enc.encode(f.name);
+    const data = enc.encode(f.data);
+    const crc = crc32(data);
+    const local = [].concat([0x50,0x4B,0x03,0x04], u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0));
+    parts.push(new Uint8Array(local), name, data);
+    central.push([].concat([0x50,0x4B,0x01,0x02], u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(data.length), u32(data.length), u16(name.length),
+      u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset)));
+    central.push(name);
+    offset += local.length + name.length + data.length;
+  });
+  const cd = [];
+  central.forEach(c => cd.push(c instanceof Uint8Array ? c : new Uint8Array(c)));
+  const cdSize = cd.reduce((n, c) => n + c.length, 0);
+  const end = new Uint8Array([].concat([0x50,0x4B,0x05,0x06], u16(0), u16(0),
+    u16(files.length), u16(files.length), u32(cdSize), u32(offset), u16(0)));
+  const all = parts.concat(cd, [end]);
+  const total = all.reduce((n, c) => n + c.length, 0);
+  const out = new Uint8Array(total);
+  let p = 0;
+  all.forEach(c => { out.set(c, p); p += c.length; });
+  return out;
+}
+const xesc = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function buildXlsx(sheetName, header, rows, widths){
+  const colRef = i => {
+    let s = '', n = i + 1;
+    while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = ((n - m) / 26) | 0; }
+    return s;
+  };
+  const cell = (v, r, c, style) => {
+    const ref = colRef(c) + r;
+    if (typeof v === 'number' && isFinite(v))
+      return `<c r="${ref}"${style ? ` s="${style}"` : ''}><v>${v}</v></c>`;
+    return `<c r="${ref}"${style ? ` s="${style}"` : ''} t="inlineStr"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
+  };
+  let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`;
+  if (widths && widths.length)
+    xml += `<cols>${widths.map((w, i) => `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
+  xml += `<sheetData>`;
+  xml += `<row r="1">${header.map((h, i) => cell(h, 1, i, 1)).join('')}</row>`;
+  rows.forEach((row, ri) => {
+    xml += `<row r="${ri + 2}">${row.map((v, i) => cell(v, ri + 2, i)).join('')}</row>`;
+  });
+  xml += `</sheetData></worksheet>`;
+
+  const files = [
+    { name: '[Content_Types].xml', data:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`+
+      `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`+
+      `<Default Extension="xml" ContentType="application/xml"/>`+
+      `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`+
+      `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`+
+      `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`+
+      `</Types>` },
+    { name: '_rels/.rels', data:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
+      `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>`+
+      `</Relationships>` },
+    { name: 'xl/workbook.xml', data:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" `+
+      `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`+
+      `<sheets><sheet name="${xesc(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+    { name: 'xl/_rels/workbook.xml.rels', data:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
+      `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>`+
+      `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`+
+      `</Relationships>` },
+    { name: 'xl/styles.xml', data:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`+
+      `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>`+
+      `<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>`+
+      `<fills count="2"><fill><patternFill patternType="none"/></fill>`+
+      `<fill><patternFill patternType="gray125"/></fill></fills>`+
+      `<borders count="1"><border/></borders>`+
+      `<cellStyleXfs count="1"><xf/></cellStyleXfs>`+
+      `<cellXfs count="2"><xf xfId="0"/><xf xfId="0" fontId="1" applyFont="1"/></cellXfs>`+
+      `</styleSheet>` },
+    { name: 'xl/worksheets/sheet1.xml', data: xml }
+  ];
+  return zipStored(files);
+}
+
 function listText(){
   const lines=[t().qtyTitle, `Baba Catalogue 2026 (REV/MAY)`, ''];
   Object.keys(LIST).forEach(k=>{
@@ -1265,15 +1384,23 @@ $('#copyBtn').onclick=async()=>{
   }
 };
 $('#csvBtn').onclick=()=>{
-  const rows=[['Art No.','Name (ZH)','Name (EN)','Pack','Colour','Qty','Category','Page']];
+  const header = lang === 'zh'
+    ? ['货号','中文名称','English name','包装','颜色','数量','分类','目录页']
+    : ['Art No.','Name (Chinese)','Name (English)','Pack','Colour','Qty','Category','Page'];
+  const rows = [];
   Object.keys(LIST).forEach(k=>{
     const {p, pk, col} = parseKey(k); if(!p || !pk) return;
-    rows.push([pk.code||p.art||'', p.name_zh||'', p.name_en||'', pk.size,
-               col ? col.en : '', LIST[k], p.cat, p.page]);
+    const cat = (DB.cats.find(c => c.id === p.cat) || {});
+    rows.push([pk.code || p.art || '', p.name_zh || '', p.name_en || '', pk.size,
+               col ? (lang === 'zh' ? col.zh : col.en) : '', LIST[k],
+               (lang === 'zh' ? cat.zh : cat.en) || p.cat, p.page || '']);
   });
-  const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=el('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='baba-enquiry-'+new Date().toISOString().slice(0,10)+'.csv';
+  const bytes = buildXlsx(lang === 'zh' ? '询价清单' : 'Enquiry',
+                          header, rows, [16, 26, 26, 22, 12, 8, 14, 9]);
+  const a = el('a');
+  a.href = URL.createObjectURL(new Blob([bytes],
+    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  a.download = 'baba-enquiry-' + new Date().toISOString().slice(0,10) + '.xlsx';
   document.body.appendChild(a); a.click(); a.remove();
 };
 $('#clearBtn').onclick=()=>{ if(confirm(t().confirmClear)){ LIST={}; saveList(); renderList(); toast(t().cleared); } };
@@ -1281,7 +1408,15 @@ $('#clearBtn').onclick=()=>{ if(confirm(t().confirmClear)){ LIST={}; saveList();
 /* ============================ pages ============================ */
 function renderPages(){
   $('#pHead').textContent=t().pHead; $('#pSub').textContent=t().pSub;
-  const g=$('#pgrid'); if(g.dataset.done) return;
+  const g=$('#pgrid');
+  if(g.dataset.done){
+    // built once (the images are heavy) — but the labels still need translating
+    g.querySelectorAll('.pgt').forEach((b, i) => {
+      b.querySelector('span').textContent = t().page(i + 1);
+      b.querySelector('img').alt = t().page(i + 1);
+    });
+    return;
+  }
   PAGES.forEach((src,i)=>{
     const b=el('button','pgt');
     b.innerHTML=`<img src="${src}" alt="${esc(t().page(i+1))}" loading="lazy"><span>${esc(t().page(i+1))}</span>`;
@@ -1725,7 +1860,7 @@ function renderAbout(){
     <h3>它能做印刷版做不到的事</h3>
     <p><b>花盆 → 托盘：</b>目录只印托盘编号（例如 <code>911</code>），要翻到第 6 页才知道尺寸。这里直接显示 Ø234 × 29 毫米。</p>
     <p><b>铁架 → 花盆：</b>第 21–22 页的配对表已建成双向索引，从花盆也能查到能用哪个架。</p>
-    <p><b>询价清单：</b>选好包装货号，一键发 WhatsApp 或导出 CSV。清单存在本机，关掉也不会丢。</p>
+    <p><b>询价清单：</b>选好包装货号，一键发 WhatsApp 或导出 Excel。清单存在本机，关掉也不会丢。</p>
     <h3>数据说明</h3>
     <p>规格、货号、包装、颜色一律照印刷版收录，未作推测。第 2 页大罗马系列四个货号印着相同尺寸，疑为印刷错误，已在该产品页标注 —— 照录原文，请向 Baba 核实。</p>
     <p>种子的中文名属翻译，方便搜索，并非目录原文；种子包装上的原文请看原版页面。</p>
@@ -1753,7 +1888,7 @@ function renderAbout(){
     <p><b>Pot → saucer:</b> the catalogue prints only a saucer code (e.g. <code>911</code>); you'd flip to page 6 for the size.
     Here it resolves to Ø234 × 29 mm inline.</p>
     <p><b>Stand → pot:</b> the fitment tables on pages 21–22 are indexed both ways, so you can start from either end.</p>
-    <p><b>Enquiry list:</b> pick pack codes, then send by WhatsApp or export CSV. The list is stored on your device.</p>
+    <p><b>Enquiry list:</b> pick pack codes, then send by WhatsApp or export to Excel. The list is stored on your device.</p>
     <h3>Data notes</h3>
     <p>Specs, art numbers, pack sizes and colours are recorded exactly as printed, never inferred. On page 2 the four
     Grand Roman art numbers print identical dimensions — likely a print error, flagged on those products. Confirm with Baba.</p>
@@ -1786,7 +1921,7 @@ function applyLang(){
   if(activeTab==='list') renderList();
   if(activeTab==='share') renderShare();
   if(activeTab==='about') renderAbout();
-  if(activeTab==='pages'){ $('#pHead').textContent=t().pHead; $('#pSub').textContent=t().pSub; }
+  if(activeTab==='pages') renderPages();
 }
 $('#chips').addEventListener('scroll', syncChipFade, {passive:true});
 window.addEventListener('resize', syncChipFade);

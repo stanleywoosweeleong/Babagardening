@@ -19,7 +19,7 @@ Free to use, no sign-up, and it keeps working with no signal once installed.
 | **287 项产品，14 个分类** | 287 products in 14 categories |
 | **花盆 → 托盘查询** | Pot-to-saucer lookup — shows the real Ø and height, not just the code |
 | **铁架 → 花盆配对** | Stand fitment, indexed both ways |
-| **询价清单** | Build a list, send by WhatsApp, or export CSV |
+| **询价清单** | Build a list, send by WhatsApp, or export to Excel |
 | **28 页原版目录** | All original catalogue pages, zoomable |
 | **中文 / English** | Bilingual, with three text sizes |
 
