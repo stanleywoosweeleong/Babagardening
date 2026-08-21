@@ -1619,17 +1619,31 @@ function blankProduct(){
 }
 
 /* ---- merge: base -> published -> local ---- */
+let BASE_PRODUCTS = null;
 function applyProducts(){
-  const base = DB.products.filter(p => p.src !== 'user');
-  const byId = {};
-  base.forEach(p => { byId[p.id] = p; });
+  /* Order is kept in an ARRAY, never taken from object key order: a JS object
+     enumerates integer-like keys first, in numeric order, so ids such as 537
+     (Helka) and the saucer codes leapt ahead of MJ-400 and broke the catalogue
+     sequence. The array below preserves the order the build produced. */
+  if (!BASE_PRODUCTS) BASE_PRODUCTS = DB.products.filter(p => p.src !== 'user');
+  const out = [], byId = {};
+  BASE_PRODUCTS.forEach(p => { byId[p.id] = p; out.push(p); });
   [EXTRA, LOCAL].forEach(layer => {
-    (layer.add || []).forEach(p => { byId[p.id] = Object.assign(blankProduct(), p, { src: 'user' }); });
+    (layer.add || []).forEach(raw => {
+      const np = Object.assign(blankProduct(), raw, { src: 'user' });
+      const prev = byId[np.id];
+      if (prev) out[out.indexOf(prev)] = np; else out.push(np);
+      byId[np.id] = np;
+    });
     Object.keys(layer.override || {}).forEach(id => {
-      if (byId[id]) byId[id] = Object.assign({}, byId[id], layer.override[id], { edited: true });
+      const prev = byId[id];
+      if (!prev) return;
+      const merged = Object.assign({}, prev, layer.override[id], { edited: true });
+      out[out.indexOf(prev)] = merged;
+      byId[id] = merged;
     });
   });
-  DB.products = Object.keys(byId).map(k => byId[k]);
+  DB.products = out;
   DB.byId = {};
   DB.products.forEach(p => {
     DB.byId[p.id] = p;
