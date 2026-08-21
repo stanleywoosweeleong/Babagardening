@@ -98,6 +98,14 @@ main{padding:0 0 calc(28px + var(--safe-b))}
   background:var(--card);font-size:1.0625rem;outline:none
 }
 .searchbar input:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-l)}
+/* type="search" draws its own clear button in Chrome/Safari, which sat next to
+   ours. Hide the native one — ours is a proper 44px tap target and looks the
+   same on every browser. */
+.searchbar input::-webkit-search-cancel-button,
+.searchbar input::-webkit-search-decoration,
+.searchbar input::-webkit-search-results-button,
+.searchbar input::-webkit-search-results-decoration{-webkit-appearance:none;appearance:none;display:none}
+.searchbar input{appearance:none;-webkit-appearance:none}
 .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.5;width:1.125rem;height:1.125rem;color:var(--ink-2);pointer-events:none}
 .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:6px 10px;opacity:.62;font-size:1.25rem}
 /* Category chips. On phones they scroll sideways with a fade to show there's
