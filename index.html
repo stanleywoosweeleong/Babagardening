@@ -356,6 +356,42 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .diag li.i span{color:var(--ink-2)}
 .diag .hint{margin-top:8px;padding-top:9px;border-top:1px solid var(--line-s);color:var(--ink-2);
   font-size:.8125rem;line-height:1.5}
+/* ---------- staff editor ---------- */
+.adminbar{position:sticky;top:0;z-index:70;background:var(--cotta);color:#fff;
+  display:none;align-items:center;gap:10px;padding:8px 14px;font-size:.875rem;font-weight:600}
+.adminbar.on{display:flex}
+.adminbar span{flex:1}
+.adminbar button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);
+  border-radius:8px;padding:6px 11px;color:#fff;font-size:.8125rem;font-weight:700;min-height:36px}
+.fab{position:fixed;right:16px;bottom:calc(18px + var(--safe-b));z-index:65;display:none;
+  background:var(--green);color:#fff;border-radius:999px;padding:14px 20px;font-size:1rem;
+  font-weight:700;box-shadow:0 6px 22px rgba(0,0,0,.28);min-height:52px}
+.fab.on{display:block}
+.editbtn{width:100%;margin-top:10px;background:var(--card);border:1px solid var(--cotta);
+  color:var(--cotta-t);border-radius:10px;padding:11px;font-size:.9375rem;font-weight:700;min-height:44px}
+.form label{display:block;font-size:.8125rem;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-2);margin:14px 0 5px}
+.form input,.form select,.form textarea{width:100%;padding:11px 12px;border-radius:9px;
+  border:1px solid var(--line);background:var(--card);font-size:1rem;font-family:var(--body)}
+.form textarea{min-height:66px;resize:vertical}
+.form .two{display:flex;gap:8px}.form .two>*{flex:1}
+.form .hint{font-size:.8125rem;color:var(--ink-2);margin-top:5px;line-height:1.5;font-weight:400;
+  text-transform:none;letter-spacing:0}
+.packedit{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.packedit input{flex:1}
+.packedit button{flex:none;width:40px;height:40px;border-radius:8px;background:var(--field);
+  font-size:1.125rem;font-weight:700;color:var(--ink-2)}
+.colpick{display:flex;flex-wrap:wrap;gap:7px}
+.photo{display:flex;gap:12px;align-items:center;margin-top:6px}
+.photo .pv{width:88px;height:88px;border-radius:10px;border:1px solid var(--line);
+  background:var(--field) center/cover no-repeat;flex:none}
+.formbtns{display:flex;gap:8px;margin-top:22px}
+.formbtns button{flex:1;min-height:50px;border-radius:11px;font-size:1rem;font-weight:700}
+.bsave{background:var(--green);color:#fff}
+.bcancel{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.bdel{background:none;border:1px solid #A03328;color:#A03328}
+.srcbadge{display:inline-block;font-family:var(--mono);font-size:.75rem;font-weight:700;
+  background:var(--cotta-l);color:var(--cotta-t);padding:2px 7px;border-radius:5px;margin-left:6px}
 /* ---------- toast / about ---------- */
 .toast{position:fixed;left:50%;bottom:calc(24px + var(--safe-b));transform:translate(-50%,20px);
   background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:1rem;
@@ -412,6 +448,11 @@ nav button{min-height:44px}
   <nav id="tabs" role="tablist"></nav>
 </header>
 
+<div class="adminbar" id="adminBar">
+  <span id="adminMsg"></span>
+  <button id="adminExport"></button>
+  <button id="adminExit"></button>
+</div>
 <main>
   <!-- BROWSE -->
   <section class="pane on" id="pane-browse">
@@ -519,6 +560,7 @@ nav button{min-height:44px}
   <div class="vscroll" id="vScroll"></div>
 </div>
 
+<button class="fab" id="fabNew"></button>
 <div class="toast" id="toast"></div>
 <div class="update" id="updateBar" role="status">
   <span id="updateMsg"></span>
@@ -563,6 +605,22 @@ const T = {
     fitPots:"适用花盆", notFound:"目录未收录", noPots:"目录未列出适用花盆",
     chooseSize:"选择尺寸", sizesN:n=>`${n} 款尺寸`, oneSize:"单一尺寸",
     picked:"已选", addThis:"加入清单",
+    edMode:"编辑模式 · 只影响这台设备，导出后交给管理员发布",
+    edExit:"退出", edExport:"导出", edNew:"＋ 新增产品", edEdit:"编辑这个产品",
+    edTitleNew:"新增产品", edTitleEdit:"编辑产品",
+    edCat:"分类", edSeries:"系列（选填，同系列会合并成一张卡）",
+    edNameZh:"中文名称", edNameEn:"英文名称", edArt:"货号",
+    edDia:"Ø 直径 mm", edHt:"高度 mm", edSaucer:"托盘编号（选填）",
+    edSpec:"规格说明（选填）", edDescZh:"中文说明（选填）", edDescEn:"英文说明（选填）",
+    edColours:"颜色（可多选）", edPacks:"包装 / 货号", edPhoto:"产品照片",
+    edPhotoHint:"从相册选或直接拍照。会自动缩小，存在这台设备。",
+    edSave:"保存", edCancel:"取消", edDelete:"删除",
+    edSaved:"已保存", edDeleted:"已删除", edNeedName:"请填写名称",
+    edSeeded:"目录内建产品可修改，但不可删除",
+    edExported:"已导出 products-extra.json",
+    edNothing:"没有新增或修改，无需导出",
+    edCount:n=>`${n} 项改动待发布`,
+    edUser:"新增", edEdited:"已修改",
     lHead:"询价清单", lSub:"选好包装加进来，导出给 Baba 或经销商。",
     listEmptyT:"清单是空的", listEmptyD:"在目录里点产品，选包装按「加入」。",
     wa:"WhatsApp", copy:"复制文字", csv:"下载 CSV", clear:"清空",
@@ -611,6 +669,23 @@ const T = {
     fitPots:"Fits pots", notFound:"not in catalogue", noPots:"no pots listed in the catalogue",
     chooseSize:"Choose a size", sizesN:n=>`${n} sizes`, oneSize:"one size",
     picked:"Selected", addThis:"Add to list",
+    edMode:"Edit mode · changes stay on this device until exported and published",
+    edExit:"Exit", edExport:"Export", edNew:"＋ New product", edEdit:"Edit this product",
+    edTitleNew:"New product", edTitleEdit:"Edit product",
+    edCat:"Category", edSeries:"Series (optional — same series share one card)",
+    edNameZh:"Name (Chinese)", edNameEn:"Name (English)", edArt:"Art no.",
+    edDia:"Ø diameter mm", edHt:"Height mm", edSaucer:"Saucer code (optional)",
+    edSpec:"Specification (optional)", edDescZh:"Description (Chinese, optional)",
+    edDescEn:"Description (English, optional)",
+    edColours:"Colours (choose any)", edPacks:"Packs / art numbers", edPhoto:"Product photo",
+    edPhotoHint:"Pick from the gallery or take one. It is resized and stored on this device.",
+    edSave:"Save", edCancel:"Cancel", edDelete:"Delete",
+    edSaved:"Saved", edDeleted:"Deleted", edNeedName:"Please enter a name",
+    edSeeded:"Catalogue products can be edited but not deleted",
+    edExported:"Exported products-extra.json",
+    edNothing:"Nothing added or changed yet",
+    edCount:n=>`${n} change(s) awaiting publication`,
+    edUser:"added", edEdited:"edited",
     lHead:"Enquiry list", lSub:"Pick pack sizes, then send the list to Baba or your dealer.",
     listEmptyT:"Your list is empty", listEmptyD:"Open a product and tap Add on a pack size.",
     wa:"WhatsApp", copy:"Copy text", csv:"Download CSV", clear:"Clear",
@@ -662,7 +737,9 @@ function thumb(p, extraStyle, overlay, zoom){
      no cropping maths, nothing from the page can leak in. */
   const {cols, rows} = DB.sprite;
   let st = `background-color:var(--field)`;
-  if(p.tile >= 0){
+  if(p.img){
+    st = `background-image:url('${p.img}');background-size:cover;background-position:center`;
+  } else if(p.tile >= 0){
     const cx = cols > 1 ? (p.tile % cols) / (cols - 1) * 100 : 0;
     const cy = rows > 1 ? Math.floor(p.tile / cols) / (rows - 1) * 100 : 0;
     st = `background-image:url('${SPRITE}');background-size:${cols * 100}% ${rows * 100}%;`+
@@ -710,6 +787,7 @@ function setTab(id){
   if(id==='pages') renderPages();
   if(id==='list') renderList();
   if(id==='match') renderMatch();
+  if(typeof paintAdmin === 'function') paintAdmin();
   if(id==='share') renderShare();
   if(id==='about') renderAbout();
 }
@@ -849,7 +927,9 @@ function openGroup(gid, preselectId){
         <div class="stitle">${esc(L(g,'name'))}</div>
         <div class="salt">${esc(ALT(g,'name'))}</div>
         <span class="sser">${esc(g.members.length > 1 ? t().sizesN(g.members.length) : t().oneSize)}${
-          g.range ? ' · ' + esc(g.range) : ''}</span>
+          g.range ? ' · ' + esc(g.range) : ''}</span>${
+          sel.src === 'user' ? `<span class="srcbadge">${esc(t().edUser)}</span>`
+          : (sel.edited ? `<span class="srcbadge">${esc(t().edEdited)}</span>` : '')}
       </div>
     </div>`;
 
@@ -897,6 +977,7 @@ function openGroup(gid, preselectId){
   h += `<button class="addbig${LIST[key] ? ' in' : ''}" data-add="${esc(key)}">`+
        `${esc(LIST[key] ? t().added + ' ×' + LIST[key] : t().addThis)}</button></div>`;
 
+  if(ADMIN) h += `<button class="editbtn" data-edit="${esc(sel.id)}">${esc(t().edEdit)} · ${esc(sel.art)}</button>`;
   if(g.note) h += `<div class="note"><b>⚠ ${esc(t().warn)}</b>${esc(lang==='zh'?g.note.zh:g.note.en)}</div>`;
   h += `<button class="pagebtn" data-page="${g.page}">${esc(t().viewPage(g.page))}</button>`;
 
@@ -923,6 +1004,7 @@ function openGroup(gid, preselectId){
     syncAdd();
   });
   b.querySelectorAll('[data-add]').forEach(n => n.onclick = () => { addToList(n.dataset.add); syncAdd(); });
+  b.querySelectorAll('[data-edit]').forEach(n => n.onclick = () => openEditor(n.dataset.edit));
   b.querySelectorAll('[data-open]').forEach(n => n.onclick = () => openAny(n.dataset.open));
   b.querySelectorAll('[data-page]').forEach(n => n.onclick = () => { closeSheet(); openViewer(+n.dataset.page - 1); });
   $('#sheet').classList.add('on'); $('#scrim').classList.add('on');
@@ -941,7 +1023,9 @@ function openSheet(id, push=true){
       <div style="flex:1;min-width:0">
         <div class="stitle">${esc(L(p,'name'))}</div>
         <div class="salt">${esc(ALT(p,'name'))}</div>
-        ${L(p,'series')?`<span class="sser">${esc(L(p,'series'))}</span>`:''}
+        ${L(p,'series')?`<span class="sser">${esc(L(p,'series'))}</span>`:''}${
+          p.src === 'user' ? `<span class="srcbadge">${esc(t().edUser)}</span>`
+          : (p.edited ? `<span class="srcbadge">${esc(t().edEdited)}</span>` : '')}
       </div>
     </div>`;
 
@@ -1007,6 +1091,7 @@ function openSheet(id, push=true){
     h += `</div>`;
   }
 
+  if(ADMIN) h += `<button class="editbtn" data-edit="${esc(p.id)}">${esc(t().edEdit)}</button>`;
   if(p.note) h += `<div class="note"><b>⚠ ${esc(t().warn)}</b>${esc(lang==='zh'?p.note.zh:p.note.en)}</div>`;
 
   h += `<button class="pagebtn" data-page="${p.page}">${esc(t().viewPage(p.page))}</button>`;
@@ -1032,6 +1117,7 @@ function openSheet(id, push=true){
   });
   b.querySelectorAll('[data-zoom]').forEach(n=>n.onclick=()=>openTileViewer(p, L(p,'name')));
   b.querySelectorAll('[data-add]').forEach(n=>n.onclick=()=>{ addToList(n.dataset.add); syncPacks(); });
+  b.querySelectorAll('[data-edit]').forEach(n=>n.onclick=()=>openEditor(n.dataset.edit));
   b.querySelectorAll('[data-open]').forEach(n=>n.onclick=()=>openAny(n.dataset.open));
   b.querySelectorAll('[data-page]').forEach(n=>n.onclick=()=>{ closeSheet(); openViewer(+n.dataset.page-1); });
   b.querySelectorAll('[data-saucer]').forEach(n=>n.onclick=()=>{
@@ -1206,6 +1292,16 @@ function renderPages(){
 }
 let vIndex=0, vMode='page';
 function openTileViewer(o, label){
+  if(o.img){
+    vMode = 'tile';
+    $('#vLabel').textContent = label || '';
+    $('#vPrev').style.display = 'none'; $('#vNext').style.display = 'none';
+    $('#vScroll').innerHTML = `<div class="vzoom"><div class="z" style="`+
+      `background-image:url('${o.img}');background-size:contain;`+
+      `background-repeat:no-repeat;background-position:center"></div></div>`;
+    $('#viewer').classList.add('on'); document.body.style.overflow='hidden';
+    return;
+  }
   if(o.tile == null || o.tile < 0) return;
   const D = DB.detail;
   const sheet = Math.floor(o.tile / D.per), pos = o.tile % D.per;
@@ -1359,6 +1455,259 @@ $('#shShareBtn').onclick = async () => {
   window.open('https://wa.me/?text='+encodeURIComponent(shareText()), '_blank');
 };
 
+
+/* ============================ staff editor ============================ */
+/* GitHub Pages is static — there is no server to save to. So edits live on the
+   device, and are published by exporting products-extra.json for the repo:
+
+     base catalogue (built from the PDF)
+       + products-extra.json      <- published additions, everyone sees these
+       + local unsaved edits      <- this device only, until exported
+
+   Seeded catalogue products can be amended but never deleted; only entries a
+   staff member created themselves can be removed. */
+
+let ADMIN = store.get('baba.admin') === '1';
+let EXTRA = { add: [], override: {} };          // published (from the repo)
+let LOCAL = { add: [], override: {} };          // this device, not yet published
+try { LOCAL = JSON.parse(store.get('baba.local') || '{"add":[],"override":{}}'); } catch (e) {}
+if (!LOCAL.add) LOCAL.add = [];
+if (!LOCAL.override) LOCAL.override = {};
+const saveLocal = () => store.set('baba.local', JSON.stringify(LOCAL));
+const localCount = () => LOCAL.add.length + Object.keys(LOCAL.override).length;
+
+function blankProduct(){
+  return { id: '', cat: 'pot', art: '', name_zh: '', name_en: '', series_zh: '', series_en: '',
+           desc_zh: '', desc_en: '', spec_zh: '', spec_en: '', dia: '', ht: '', saucer: '',
+           colours: [], packs: [], flags: [], page: 0, crop: null, tile: -1,
+           bg: '#DEE0DD', img: '', src: '' };
+}
+
+/* ---- merge: base -> published -> local ---- */
+function applyProducts(){
+  const base = DB.products.filter(p => p.src !== 'user');
+  const byId = {};
+  base.forEach(p => { byId[p.id] = p; });
+  [EXTRA, LOCAL].forEach(layer => {
+    (layer.add || []).forEach(p => { byId[p.id] = Object.assign(blankProduct(), p, { src: 'user' }); });
+    Object.keys(layer.override || {}).forEach(id => {
+      if (byId[id]) byId[id] = Object.assign({}, byId[id], layer.override[id], { edited: true });
+    });
+  });
+  DB.products = Object.keys(byId).map(k => byId[k]);
+  DB.byId = {};
+  DB.products.forEach(p => {
+    DB.byId[p.id] = p;
+    if (!p.packs) p.packs = [];
+    p._s = [p.name_zh, p.name_en, p.series_zh, p.series_en, p.desc_zh, p.desc_en, p.art,
+            p.spec_zh, p.spec_en, ...p.packs.map(k => (k.code || '') + ' ' + (k.size || ''))]
+           .join(' ').toLowerCase();
+    if (p.cat === 'stand') DB.standIdBy[p.art] = p.id;
+    if (p.cat === 'saucer') DB.saucerIdBy[p.art] = p.id;
+  });
+  buildGroups();
+}
+
+async function loadPublished(){
+  try {
+    const r = await fetch('products-extra.json', { cache: 'no-cache' });
+    if (!r.ok) return;                       // not published yet — perfectly normal
+    const j = await r.json();
+    EXTRA = { add: j.add || [], override: j.override || {} };
+    applyProducts();
+    renderChips(); renderGrid();
+  } catch (e) { /* offline or absent: base catalogue still works */ }
+}
+
+/* ---- edit mode ---- */
+function setAdmin(on){
+  ADMIN = on;
+  store.set('baba.admin', on ? '1' : '0');
+  paintAdmin();
+}
+function paintAdmin(){
+  $('#adminBar').classList.toggle('on', ADMIN);
+  $('#fabNew').classList.toggle('on', ADMIN && activeTab === 'browse');
+  const n = localCount();
+  $('#adminMsg').textContent = t().edMode + (n ? ' · ' + t().edCount(n) : '');
+  $('#adminExport').textContent = t().edExport;
+  $('#adminExit').textContent = t().edExit;
+  $('#fabNew').textContent = t().edNew;
+}
+$('#adminExit').onclick = () => setAdmin(false);
+$('#fabNew').onclick = () => openEditor(null);
+$('#adminExport').onclick = () => {
+  if (!localCount()) { toast(t().edNothing); return; }
+  const merged = {
+    version: 1,
+    updated: new Date().toISOString().slice(0, 10),
+    add: EXTRA.add.filter(p => !LOCAL.add.some(l => l.id === p.id)).concat(LOCAL.add),
+    override: Object.assign({}, EXTRA.override, LOCAL.override)
+  };
+  const a = el('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(merged, null, 2)], { type: 'application/json' }));
+  a.download = 'products-extra.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(t().edExported);
+};
+
+/* ---- photo: downscale on device so the export stays small ---- */
+function readPhoto(file, cb){
+  const fr = new FileReader();
+  fr.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      const S = 420;
+      const r = Math.min(S / im.width, S / im.height, 1);
+      const w = Math.round(im.width * r), hh = Math.round(im.height * r);
+      const c = document.createElement('canvas');
+      c.width = S; c.height = S;
+      const x = c.getContext('2d');
+      x.fillStyle = '#DEE0DD'; x.fillRect(0, 0, S, S);
+      x.drawImage(im, (S - w) / 2, (S - hh) / 2, w, hh);
+      cb(c.toDataURL('image/jpeg', 0.82));
+    };
+    im.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+/* ---- the form ---- */
+let EDITING = null;
+function openEditor(id){
+  const isNew = !id;
+  const rec = isNew ? null : DB.byId[id];
+  // Catalogue products may be amended but never removed; only entries a staff
+  // member created can be deleted.
+  const isUserMade = !!rec && rec.src === 'user';
+  const p = isNew ? blankProduct() : Object.assign(blankProduct(), rec);
+  EDITING = { id, isNew, draft: p };
+  const cats = DB.cats.map(c =>
+    `<option value="${esc(c.id)}"${p.cat === c.id ? ' selected' : ''}>${esc(lang === 'zh' ? c.zh : c.en)}</option>`).join('');
+  const cols = Object.keys(DB.colours).map(k => {
+    const c = DB.colours[k], on = (p.colours || []).includes(k);
+    return `<button type="button" class="sw" aria-pressed="${on}" data-ecol="${esc(k)}">`+
+           `<i style="background:${c.hex}"></i>${esc(lang === 'zh' ? c.zh : c.en)}</button>`;
+  }).join('');
+  const packRows = (p.packs.length ? p.packs : [{ code: '', size: '' }]).map((k, i) =>
+    `<div class="packedit"><input data-pk="code" data-i="${i}" placeholder="${esc(t().edArt)}" value="${esc(k.code || '')}">`+
+    `<input data-pk="size" data-i="${i}" placeholder="1kg / 7 Litres" value="${esc(k.size || '')}">`+
+    `<button type="button" data-pkdel="${i}">×</button></div>`).join('');
+
+  $('#sheetBody').innerHTML = `
+    <div class="stitle">${esc(isNew ? t().edTitleNew : t().edTitleEdit)}</div>
+    <div class="form">
+      <label>${esc(t().edPhoto)}</label>
+      <div class="photo">
+        <div class="pv" id="edPv" style="${p.img ? `background-image:url('${p.img}')` : ''}"></div>
+        <div style="flex:1">
+          <input type="file" id="edFile" accept="image/*">
+          <div class="hint">${esc(t().edPhotoHint)}</div>
+        </div>
+      </div>
+      <label>${esc(t().edCat)}</label><select id="edCat">${cats}</select>
+      <label>${esc(t().edSeries)}</label>
+      <div class="two"><input id="edSerZh" placeholder="中文" value="${esc(p.series_zh)}">
+        <input id="edSerEn" placeholder="English" value="${esc(p.series_en)}"></div>
+      <label>${esc(t().edNameZh)}</label><input id="edNameZh" value="${esc(p.name_zh)}">
+      <label>${esc(t().edNameEn)}</label><input id="edNameEn" value="${esc(p.name_en)}">
+      <label>${esc(t().edArt)}</label><input id="edArt" value="${esc(p.art)}">
+      <div class="two">
+        <div><label>${esc(t().edDia)}</label><input id="edDia" inputmode="numeric" value="${esc(p.dia)}"></div>
+        <div><label>${esc(t().edHt)}</label><input id="edHt" inputmode="numeric" value="${esc(p.ht)}"></div>
+      </div>
+      <label>${esc(t().edSaucer)}</label><input id="edSaucer" value="${esc(p.saucer)}">
+      <label>${esc(t().edSpec)}</label>
+      <div class="two"><input id="edSpecZh" placeholder="中文" value="${esc(p.spec_zh)}">
+        <input id="edSpecEn" placeholder="English" value="${esc(p.spec_en)}"></div>
+      <label>${esc(t().edDescZh)}</label><textarea id="edDescZh">${esc(p.desc_zh)}</textarea>
+      <label>${esc(t().edDescEn)}</label><textarea id="edDescEn">${esc(p.desc_en)}</textarea>
+      <label>${esc(t().edColours)}</label><div class="colpick" id="edCols">${cols}</div>
+      <label>${esc(t().edPacks)}</label><div id="edPacks">${packRows}</div>
+      <button type="button" class="editbtn" id="edPackAdd">＋</button>
+      ${!isNew && !isUserMade ? `<div class="hint" style="margin-top:14px">${esc(t().edSeeded)}</div>` : ''}
+      <div class="formbtns">
+        <button class="bcancel" id="edCancel">${esc(t().edCancel)}</button>
+        <button class="bsave" id="edSave">${esc(t().edSave)}</button>
+      </div>
+      ${isUserMade ? `<button class="bdel" id="edDel" style="width:100%;min-height:48px;border-radius:11px;margin-top:10px">${esc(t().edDelete)}</button>` : ''}
+    </div>`;
+
+  const b = $('#sheetBody');
+  b.querySelectorAll('[data-ecol]').forEach(n => n.onclick = () => {
+    const k = n.dataset.ecol, cur = EDITING.draft.colours || [];
+    EDITING.draft.colours = cur.includes(k) ? cur.filter(x => x !== k) : cur.concat(k);
+    n.setAttribute('aria-pressed', String(EDITING.draft.colours.includes(k)));
+  });
+  b.querySelector('#edFile').onchange = ev => {
+    const f = ev.target.files && ev.target.files[0]; if (!f) return;
+    readPhoto(f, uri => { EDITING.draft.img = uri; $('#edPv').style.backgroundImage = `url('${uri}')`; });
+  };
+  b.querySelector('#edPackAdd').onclick = () => { collectForm(); EDITING.draft.packs.push({ code: '', size: '' }); reopenEditor(); };
+  b.querySelectorAll('[data-pkdel]').forEach(n => n.onclick = () => {
+    collectForm();
+    EDITING.draft.packs.splice(+n.dataset.pkdel, 1);
+    reopenEditor();
+  });
+  b.querySelector('#edCancel').onclick = () => { EDITING = null; closeSheet(); };
+  b.querySelector('#edSave').onclick = saveEditor;
+  const del = b.querySelector('#edDel');
+  if (del) del.onclick = () => {
+    LOCAL.add = LOCAL.add.filter(x => x.id !== id);
+    delete LOCAL.override[id];
+    saveLocal(); applyProducts(); renderChips(); renderGrid(); paintAdmin();
+    EDITING = null; closeSheet(); toast(t().edDeleted);
+  };
+
+  SHEET_KEY = 'edit';
+  $('#sheet').scrollTop = 0;
+  $('#sheet').classList.add('on'); $('#scrim').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+function reopenEditor(){ const e = EDITING; openEditor(e.id); EDITING.draft = e.draft; }
+
+function collectForm(){
+  const d = EDITING.draft, g = s => { const n = $(s); return n ? n.value.trim() : ''; };
+  d.cat = g('#edCat'); d.series_zh = g('#edSerZh'); d.series_en = g('#edSerEn');
+  d.name_zh = g('#edNameZh'); d.name_en = g('#edNameEn'); d.art = g('#edArt');
+  d.dia = g('#edDia'); d.ht = g('#edHt'); d.saucer = g('#edSaucer');
+  d.spec_zh = g('#edSpecZh'); d.spec_en = g('#edSpecEn');
+  d.desc_zh = g('#edDescZh'); d.desc_en = g('#edDescEn');
+  const packs = [];
+  $('#edPacks').querySelectorAll('.packedit').forEach(row => {
+    const code = row.querySelector('[data-pk="code"]').value.trim();
+    const size = row.querySelector('[data-pk="size"]').value.trim();
+    if (code || size) packs.push({ code, size });
+  });
+  d.packs = packs;
+}
+function saveEditor(){
+  collectForm();
+  const d = EDITING.draft;
+  if (!d.name_zh && !d.name_en && !d.art) { toast(t().edNeedName); return; }
+  if (!d.packs.length) d.packs = [{ code: d.art, size: [d.dia && 'Ø' + d.dia, d.ht && 'H' + d.ht].filter(Boolean).join(' × ') || d.art }];
+  if (EDITING.isNew) {
+    d.id = 'u-' + (d.art || d.name_en || d.name_zh).toString().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36).slice(-4);
+    d.src = 'user';
+    LOCAL.add.push(d);
+  } else if (DB.byId[EDITING.id] && DB.byId[EDITING.id].src === 'user') {
+    LOCAL.add = LOCAL.add.filter(x => x.id !== EDITING.id);
+    LOCAL.add.push(Object.assign({}, d, { id: EDITING.id }));
+  } else {
+    // seeded product: store only what actually differs
+    const base = DB.products.find(x => x.id === EDITING.id) || {};
+    const patch = {};
+    ['cat','art','name_zh','name_en','series_zh','series_en','desc_zh','desc_en','spec_zh',
+     'spec_en','dia','ht','saucer','colours','packs','img'].forEach(k => {
+      if (JSON.stringify(d[k]) !== JSON.stringify(base[k])) patch[k] = d[k];
+    });
+    if (Object.keys(patch).length) LOCAL.override[EDITING.id] = patch;
+  }
+  saveLocal(); applyProducts(); renderChips(); renderGrid(); paintAdmin();
+  EDITING = null; closeSheet(); toast(t().edSaved);
+}
+
 /* ============================ about ============================ */
 function renderAbout(){
   const zh = lang==='zh';
@@ -1493,7 +1842,14 @@ applySize();
 refreshSwState();
 
 /* Deep links from the manifest shortcuts: ?tab=list / ?tab=match */
-const wantTab = new URLSearchParams(location.search).get('tab');
+const params = new URLSearchParams(location.search);
+if(params.get('admin') === '1') setAdmin(true);
+paintAdmin();
+applyProducts();
+renderChips(); renderGrid();
+loadPublished();
+
+const wantTab = params.get('tab');
 setTab(TABS.includes(wantTab) ? wantTab : 'browse');
 
 /* ---------------------------------------------------------------

@@ -122,3 +122,50 @@ Specs, art numbers, pack sizes and colours are recorded exactly as printed, neve
 **KEAN BENG LEE INDUSTRIES (M) SDN. BHD. (399320-T)**
 1384, Atas Lot 841, MK-1, Jalan Tasek, 14120 Simpang Ampat, Seberang Perai Selatan, Penang, Malaysia
 T +604-587 4077 · www.baba.com.my
+
+---
+
+## 给 Baba 同事：新增产品 / For Baba staff: adding products
+
+网站是静态的（GitHub Pages），没有后台伺服器。所以流程是：
+**在手机／电脑上编辑 → 导出一个档案 → 交给管理员上传 → 所有人看到。**
+
+The site is static (GitHub Pages) — there is no server to save to. So the flow is:
+**edit on your device → export one file → send it to the admin → everyone sees it.**
+
+### 1. 打开编辑模式 / Turn on edit mode
+
+在网址后面加上 `?admin=1`：
+Add `?admin=1` to the address:
+
+```
+https://stanleywoosweeleong.github.io/Babagardening/?admin=1
+```
+
+顶部会出现橙色的「编辑模式」横条。这只是隐藏入口，**不是密码保护** —— 不要放任何机密资料。
+An orange **Edit mode** bar appears. This only hides the feature; it is **not password protection** — do not put anything confidential in the catalogue.
+
+### 2. 新增或修改 / Add or edit
+
+- **新增**：点右下角「＋ 新增产品」，填写名称、货号、尺寸、颜色、包装，可以直接拍照或从相册选图。
+- **修改**：打开任何产品，点「编辑这个产品」。
+- **系列**：填相同的系列名，卡片会自动合并成一张（像印刷版目录那样）。
+
+- **New:** tap **＋ New product** at the bottom right. Fill in the name, art number, size, colours and packs; you can take a photo or pick one from the gallery.
+- **Edit:** open any product and tap **Edit this product**.
+- **Series:** give products the same series name and they merge into one card, the way the printed catalogue groups them.
+
+> **重要规则 / Important rule**
+> 印刷版目录里的产品**可以修改，但不能删除**。只有同事自己新增的产品才能删除。
+> Products from the printed catalogue **can be amended but never deleted**. Only entries a staff member created can be removed.
+
+### 3. 导出并发布 / Export and publish
+
+改完后点橙色横条上的「导出」，会下载 **`products-extra.json`**。
+把这个档案交给管理员，上传到 repo 根目录，覆盖旧的即可 —— 所有用户下次开启就会看到。
+
+When you are done, tap **Export** on the orange bar to download **`products-extra.json`**.
+Send it to the admin, who uploads it to the repo root (overwriting the old one). Every user picks it up next time they open the app.
+
+**注意 / Note:** 导出之前，改动只存在你这台设备上。换手机或清除浏览器资料就会不见。
+Until you export, changes live only on your device. They are lost if you clear site data or switch phones.
