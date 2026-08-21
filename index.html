@@ -108,20 +108,24 @@ main{padding:0 0 calc(28px + var(--safe-b))}
 .searchbar input{appearance:none;-webkit-appearance:none}
 .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.5;width:1.125rem;height:1.125rem;color:var(--ink-2);pointer-events:none}
 .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:6px 10px;opacity:.62;font-size:1.25rem}
-/* Category chips. On phones they scroll sideways with a fade to show there's
-   more; from tablet up they simply wrap, because a hidden horizontal scrollbar
-   made the last categories unreachable with a mouse. */
-.chipwrap{position:relative;max-width:1180px;margin:0 auto}
-.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;
-  scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-padding-left:14px}
-.chips::-webkit-scrollbar{display:none}
-.chipwrap::after{content:"";position:absolute;right:0;top:0;bottom:0;width:34px;
-  pointer-events:none;background:linear-gradient(to right,rgba(244,243,239,0),var(--paper));
-  opacity:1;transition:opacity .15s}
-.chipwrap.end::after{opacity:0}
-@media(min-width:700px){
-  .chips{flex-wrap:wrap;overflow:visible;padding:8px 14px 12px}
-  .chipwrap::after{display:none}
+/* Category filter. On a phone 15 chips are a long scrolling row, so they
+   collapse behind a single button showing the current filter and expand inline.
+   From tablet up there is room to simply show them all, wrapped. */
+.chipwrap{position:relative;max-width:1180px;margin:0 auto;padding:0 14px 10px}
+.catbtn{display:none;width:100%;align-items:center;gap:8px;background:var(--card);
+  border:1px solid var(--line);border-radius:10px;padding:11px 14px;min-height:46px;
+  font-size:1rem;font-weight:600;text-align:left}
+.catbtn .cur{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catbtn .n{font-family:var(--mono);font-size:.875rem;color:var(--ink-2)}
+.catbtn .caret{transition:transform .18s;font-size:.75rem;color:var(--ink-2)}
+.chipwrap.open .catbtn .caret{transform:rotate(180deg)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0}
+@media(max-width:699px){
+  .catbtn{display:flex}
+  .chips{display:none;margin-top:8px;max-height:46vh;overflow-y:auto;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .chipwrap.open .chips{display:flex}
+  .chip{flex:1 1 auto}
 }
 .chip{
   flex:none;padding:6px 12px;border-radius:999px;border:1px solid var(--line);
@@ -479,7 +483,12 @@ nav button{min-height:44px}
         <button class="clr" id="qClear" hidden>×</button>
       </div>
     </div>
-    <div class="chipwrap" id="chipwrap"><div class="chips" id="chips"></div></div>
+    <div class="chipwrap" id="chipwrap">
+      <button class="catbtn" id="catBtn" aria-expanded="false">
+        <span class="cur" id="catCur"></span><span class="n" id="catNum"></span><span class="caret">▼</span>
+      </button>
+      <div class="chips" id="chips"></div>
+    </div>
     <div class="wrap">
       <div class="count" id="count"></div>
       <div class="grid" id="grid"></div>
@@ -973,18 +982,26 @@ function renderChips(){
   const mk=(id,label,n)=>{
     const b=el('button','chip',`${esc(label)}<span class="n">${n}</span>`);
     b.setAttribute('aria-pressed', cat===id);
-    b.onclick=()=>{cat=id; renderChips(); renderGrid();};
+    b.onclick=()=>{
+      cat=id; renderChips(); renderGrid();
+      setChipsOpen(false);          // picking one closes the list on a phone
+      window.scrollTo({top:0});
+    };
     box.appendChild(b);
   };
   mk('all', t().all, DB.products.length);
   DB.cats.forEach(c=> counts[c.id] && mk(c.id, lang==='zh'?c.zh:c.en, counts[c.id]));
-  syncChipFade();
+  paintCatButton();
 }
-function syncChipFade(){
-  const box = $('#chips'), wrap = $('#chipwrap');
-  if(!box || !wrap) return;
-  const atEnd = box.scrollLeft + box.clientWidth >= box.scrollWidth - 2;
-  wrap.classList.toggle('end', atEnd || box.scrollWidth <= box.clientWidth);
+function paintCatButton(){
+  const counts = catCounts();
+  const c = cat === 'all' ? null : DB.cats.find(x => x.id === cat);
+  $('#catCur').textContent = c ? (lang === 'zh' ? c.zh : c.en) : t().all;
+  $('#catNum').textContent = c ? (counts[cat] || 0) : DB.products.length;
+}
+function setChipsOpen(on){
+  $('#chipwrap').classList.toggle('open', on);
+  $('#catBtn').setAttribute('aria-expanded', String(on));
 }
 let QUERY_TOKENS = [];
 function entryScore(e){
@@ -2113,8 +2130,10 @@ function applyLang(){
   if(activeTab==='about') renderAbout();
   if(activeTab==='pages') renderPages();
 }
-$('#chips').addEventListener('scroll', syncChipFade, {passive:true});
-window.addEventListener('resize', syncChipFade);
+$('#catBtn').onclick = () => setChipsOpen(!$('#chipwrap').classList.contains('open'));
+document.addEventListener('click', e => {
+  if(!$('#chipwrap').contains(e.target)) setChipsOpen(false);
+});
 $('#langBtn').onclick=()=>{ lang = lang==='zh'?'en':'zh'; store.set('baba.lang',lang); applyLang(); };
 
 /* ---- reader text size: 3 steps, scales the whole rem-based type scale ---- */
