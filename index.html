@@ -1511,12 +1511,15 @@ function applyProducts(){
 async function loadPublished(){
   try {
     const r = await fetch('products-extra.json', { cache: 'no-cache' });
-    if (!r.ok) return;                       // not published yet — perfectly normal
+    if (!r.ok) return;                 // absent on older deploys — base catalogue still fine
     const j = await r.json();
-    EXTRA = { add: j.add || [], override: j.override || {} };
+    if (!j || (!j.add && !j.override)) return;
+    EXTRA = { add: Array.isArray(j.add) ? j.add : [],
+              override: (j.override && typeof j.override === 'object') ? j.override : {} };
+    if (!EXTRA.add.length && !Object.keys(EXTRA.override).length) return;
     applyProducts();
     renderChips(); renderGrid();
-  } catch (e) { /* offline or absent: base catalogue still works */ }
+  } catch (e) { /* offline, or the file is malformed: never break the catalogue */ }
 }
 
 /* ---- edit mode ---- */

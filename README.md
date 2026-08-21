@@ -169,3 +169,9 @@ Send it to the admin, who uploads it to the repo root (overwriting the old one).
 
 **注意 / Note:** 导出之前，改动只存在你这台设备上。换手机或清除浏览器资料就会不见。
 Until you export, changes live only on your device. They are lost if you clear site data or switch phones.
+
+> ⚠️ **给管理员 / For the admin**
+> 重新部署时，**不要用空白的 `products-extra.json` 覆盖已发布的版本** —— 那会清掉所有同事新增的产品。
+> 重建时若 repo 已有这个档案，保留它即可。
+>
+> When redeploying, **do not overwrite a published `products-extra.json` with the empty starter file** — that would wipe every staff addition. If the repo already has one, leave it in place.
